@@ -209,9 +209,9 @@ public class Certy {
         return this;
     }
 
-    // Regenerate certificate and private key with currently defined attributes.
+    // (Re)generate certificate and private key with currently defined attributes.
     public Certy generate()
-            throws OperatorCreationException, CertificateException, NoSuchAlgorithmException, CertIOException {
+            throws CertificateException, NoSuchAlgorithmException, CertIOException {
         // Traverse the certificate hierarchy recursively to ensure issuing CAs have
         // been generated as well.
         if (issuer != null) {
@@ -227,11 +227,11 @@ public class Certy {
         if (notBefore != null) {
             effectiveNotBefore = notBefore;
         } else {
-            effectiveNotBefore = new Date();
+            effectiveNotBefore = new Date(); // Now.
         }
 
         if (notAfter != null) {
-            effectiveNotAfter = notBefore;
+            effectiveNotAfter = notAfter;
         } else {
             effectiveNotAfter = Date.from(effectiveNotBefore.toInstant().plus(expires));
         }
@@ -244,20 +244,24 @@ public class Certy {
 
         X500Name effectiveIssuer;
         ContentSigner signer;
-        if (issuer == null) {
-            effectiveIssuer = effectiveSubject;
-            signer = new JcaContentSignerBuilder(signatureAlgorithm(keyPair.getPublic()))
-                    .build(keyPair.getPrivate());
-        } else {
-            effectiveIssuer = new X500Name(issuer.subject);
-            signer = new JcaContentSignerBuilder(signatureAlgorithm(issuer.keyPair.getPublic()))
-                    .build(issuer.keyPair.getPrivate());
+        try {
+            if (issuer == null) {
+                effectiveIssuer = effectiveSubject;
+                    signer = new JcaContentSignerBuilder(signatureAlgorithm(keyPair.getPublic()))
+                            .build(keyPair.getPrivate());
+            } else {
+                effectiveIssuer = new X500Name(issuer.subject);
+                signer = new JcaContentSignerBuilder(signatureAlgorithm(issuer.keyPair.getPublic()))
+                        .build(issuer.keyPair.getPrivate());
+            }
+        } catch (OperatorCreationException e) {
+            throw new CertificateException(e.toString());
         }
 
         Instant now = Instant.now();
         JcaX509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
                 effectiveIssuer,
-                BigInteger.valueOf(now.toEpochMilli()),
+                BigInteger.valueOf(now.toEpochMilli()), // Current time as serial number.
                 effectiveNotBefore,
                 effectiveNotAfter,
                 effectiveSubject,
@@ -266,7 +270,7 @@ public class Certy {
         JcaX509ExtensionUtils utils = new JcaX509ExtensionUtils();
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(isCa))
                 .addExtension(Extension.subjectKeyIdentifier, false,
-                        utils.createAuthorityKeyIdentifier(keyPair.getPublic()))
+                        utils.createSubjectKeyIdentifier(keyPair.getPublic()))
                 .addExtension(Extension.keyUsage, true, new org.bouncycastle.asn1.x509.KeyUsage(
                         keyUsages.stream().collect(Collectors.summingInt(KeyUsage::getValue))));
 
@@ -287,7 +291,7 @@ public class Certy {
     }
 
     // Return certificate as PEM.
-    public String getCertificateAsPem() throws OperatorCreationException, CertificateException, NoSuchAlgorithmException, IOException {
+    public String getCertificateAsPem() throws CertificateException, NoSuchAlgorithmException, IOException {
         ensureGenerated();
 
         StringWriter writer = new StringWriter();
@@ -301,7 +305,7 @@ public class Certy {
 
     // Return private key as PEM.
     public String getPrivateKeyAsPem()
-            throws IOException, OperatorCreationException, CertificateException, NoSuchAlgorithmException {
+            throws IOException, CertificateException, NoSuchAlgorithmException {
         ensureGenerated();
 
         StringWriter writer = new StringWriter();
@@ -315,7 +319,7 @@ public class Certy {
 
     // Write certificate as PEM to a named file.
     public Certy writeCertificateAsPem(Path out)
-            throws IOException, OperatorCreationException, CertificateException, NoSuchAlgorithmException {
+            throws IOException, CertificateException, NoSuchAlgorithmException {
         ensureGenerated();
 
         try (BufferedWriter writer = Files.newBufferedWriter(out, StandardCharsets.UTF_8)) {
@@ -331,7 +335,7 @@ public class Certy {
     }
 
     // Write private key as PEM to a named file.
-    public Certy writePrivateKeyAsPem(Path out) throws IOException, OperatorCreationException, CertificateException, NoSuchAlgorithmException {
+    public Certy writePrivateKeyAsPem(Path out) throws IOException, CertificateException, NoSuchAlgorithmException {
         ensureGenerated();
 
         try (BufferedWriter writer = Files.newBufferedWriter(out, StandardCharsets.UTF_8)) {
@@ -347,14 +351,14 @@ public class Certy {
     }
 
     // Return private key.
-    public PrivateKey getPrivateKey() throws OperatorCreationException, CertificateException, NoSuchAlgorithmException, CertIOException {
+    public PrivateKey getPrivateKey() throws CertificateException, NoSuchAlgorithmException, CertIOException {
         ensureGenerated();
 
         return keyPair.getPrivate();
     }
 
     // Return certificate.
-    public Certificate getCertificate() throws OperatorCreationException, CertificateException, NoSuchAlgorithmException, CertIOException {
+    public Certificate getCertificate() throws CertificateException, NoSuchAlgorithmException, CertIOException {
         ensureGenerated();
 
         return certificate;
@@ -362,26 +366,27 @@ public class Certy {
 
     // Convenience method for returning certificate as an array of certificates (returns always just one certificate).
     public Certificate[] getCertificates()
-            throws OperatorCreationException, CertificateException, NoSuchAlgorithmException, CertIOException {
+            throws CertificateException, NoSuchAlgorithmException, CertIOException {
         ensureGenerated();
 
         return new Certificate[] { certificate };
     }
 
     // Convenience method for returning X509Certificate.
-    public X509Certificate getX509Certificate() throws OperatorCreationException, CertificateException, NoSuchAlgorithmException, CertIOException {
+    public X509Certificate getX509Certificate() throws CertificateException, NoSuchAlgorithmException, CertIOException {
         ensureGenerated();
 
         return (X509Certificate) certificate;
     }
 
     private void ensureGenerated()
-            throws OperatorCreationException, CertificateException, NoSuchAlgorithmException, CertIOException {
+            throws CertificateException, NoSuchAlgorithmException, CertIOException {
         if (certificate == null || keyPair == null) {
             generate();
         }
     }
 
+    // Fill in defaults for attributes that caller has not set.
     private void setDefaults() {
         if (keyType == null) {
             keyType = KeyType.EC;
@@ -407,6 +412,9 @@ public class Certy {
         if (keyUsages.isEmpty()) {
             if (isCa) {
                 keyUsages = Arrays.asList(KeyUsage.KEY_CERT_SIGN, KeyUsage.CRL_SIGN);
+            } else if (keyType == KeyType.EC) {
+                // https://github.com/openjdk/jdk/blob/0530f4e517be5d5b3ff10be8a0764e564f068c06/src/java.base/share/classes/sun/security/ssl/X509KeyManagerImpl.java#L604-L618
+                keyUsages = Arrays.asList(KeyUsage.KEY_ENCIPHERMENT, KeyUsage.DIGITAL_SIGNATURE, KeyUsage.KEY_AGREEMENT);
             } else {
                 keyUsages = Arrays.asList(KeyUsage.KEY_ENCIPHERMENT, KeyUsage.DIGITAL_SIGNATURE);
             }
@@ -426,6 +434,7 @@ public class Certy {
         return keyGen.genKeyPair();
     }
 
+    // Return preferred signature algorithm for given key.
     private static String signatureAlgorithm(PublicKey pub) {
         switch (pub.getAlgorithm()) {
             case "EC":
@@ -448,6 +457,7 @@ public class Certy {
         }
     }
 
+    // Parse string-based subject alt names into GeneralNames.
     private static GeneralNames asGeneralNames(List<String> sans) {
         List<GeneralName> altNames = new ArrayList<>();
         for (String name : sans) {
@@ -455,7 +465,6 @@ public class Certy {
             // Parse type and value.
             int separatorPos = name.indexOf(":");
             if (separatorPos == -1) {
-                // Bail out when invalid syntax.
                 throw new IllegalArgumentException("cannot parse " + name
                         + ": all subjectAltNames must be of format: DNS:www.example.com, IP:1.2.3.4, URI:https://www.example.com");
             }
@@ -473,7 +482,6 @@ public class Certy {
                 case "URI":
                     altNames.add(new GeneralName(GeneralName.uniformResourceIdentifier, value));
                     break;
-
                 default:
                     break;
             }
@@ -486,5 +494,4 @@ public class Certy {
 
         return GeneralNames.getInstance(new DERSequence(altNames.toArray(new GeneralName[] {})));
     }
-
 }

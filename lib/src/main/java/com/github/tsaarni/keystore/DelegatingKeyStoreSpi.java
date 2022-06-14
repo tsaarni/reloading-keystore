@@ -72,7 +72,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.getKey(alias, password);
         } catch (KeyStoreException e) {
-            log.info("getKey() failed", e);
+            log.error("getKey() failed", e);
             return null;
         }
     }
@@ -83,7 +83,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.getCertificateChain(alias);
         } catch (KeyStoreException e) {
-            log.info("getCertificateChain() failed ", e);
+            log.error("getCertificateChain() failed ", e);
             return new Certificate[0];
         }
     }
@@ -94,7 +94,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.getCertificate(alias);
         } catch (KeyStoreException e) {
-            log.info("getCertificate() failed ", e);
+            log.error("getCertificate() failed ", e);
             return null;
         }
     }
@@ -105,7 +105,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.getCreationDate(alias);
         } catch (KeyStoreException e) {
-            log.info("getCreationDate() failed ", e);
+            log.error("getCreationDate() failed ", e);
             return null;
         }
     }
@@ -125,7 +125,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.containsAlias(alias);
         } catch (KeyStoreException e) {
-            log.info("containsAlias() failed) ", e);
+            log.error("containsAlias() failed) ", e);
             return false;
         }
     }
@@ -136,7 +136,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.size();
         } catch (KeyStoreException e) {
-            log.info("size() failed ", e);
+            log.error("size() failed ", e);
             return 0;
         }
     }
@@ -147,7 +147,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.isKeyEntry(alias);
         } catch (KeyStoreException e) {
-            log.info("isKeyEntry() failed", e);
+            log.error("isKeyEntry() failed", e);
             return false;
         }
     }
@@ -158,7 +158,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.isCertificateEntry(alias);
         } catch (KeyStoreException e) {
-            log.info("isCertificateEntry() failed ", e);
+            log.error("isCertificateEntry() failed ", e);
             return false;
         }
     }
@@ -169,7 +169,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             return delegate.get().keyStore.getCertificateAlias(cert);
         } catch (KeyStoreException e) {
-            log.info("getCertificateAlias() failed", e);
+            log.error("getCertificateAlias() failed", e);
             return null;
         }
     }
@@ -222,7 +222,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
                 Collections.sort(sortedAliases);
             } catch (KeyStoreException e) {
                 // Ignore exception.
-                log.info("Failed getting aliases: ", e);
+                log.error("Failed getting aliases: ", e);
             }
         }
     }

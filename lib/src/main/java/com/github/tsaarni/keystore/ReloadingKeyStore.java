@@ -69,14 +69,13 @@ public class ReloadingKeyStore extends KeyStore {
             return protection;
         }
 
-        public static Builder fromKeyStoreFile(String type, String provider, Path path, String password, String alias,
+        public static KeyStore.Builder fromKeyStoreFile(String type, String provider, Path path, String password, String alias,
                 String aliasPassword) throws NoSuchAlgorithmException, CertificateException, KeyStoreException, NoSuchProviderException, IOException  {
             return new Builder(new ReloadingKeyStore(new ReloadingKeyStoreFileSpi(type, provider, path, password), null,
                     "ReloadingKeyStore"), password, alias, aliasPassword);
-
         }
 
-        public static Builder fromPem(List<Path> certs, List<Path> keys)
+        public static KeyStore.Builder fromPem(List<Path> certs, List<Path> keys)
                 throws NoSuchAlgorithmException, CertificateException, IllegalArgumentException, KeyStoreException,
                 InvalidKeySpecException, IOException {
             return new Builder(
@@ -85,7 +84,7 @@ public class ReloadingKeyStore extends KeyStore {
                     null, null);
         }
 
-        public static Builder fromPem(Path cert, Path key) throws NoSuchAlgorithmException, CertificateException, IllegalArgumentException, KeyStoreException, InvalidKeySpecException, IOException {
+        public static KeyStore.Builder fromPem(Path cert, Path key) throws NoSuchAlgorithmException, CertificateException, IllegalArgumentException, KeyStoreException, InvalidKeySpecException, IOException {
             return new Builder(
                     new ReloadingKeyStore(new ReloadingPemFileKeyStoreSpi(Arrays.asList(cert), Arrays.asList(key)),
                             null, "ReloadingKeyStore"),

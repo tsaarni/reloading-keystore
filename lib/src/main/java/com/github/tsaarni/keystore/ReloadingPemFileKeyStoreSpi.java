@@ -3,7 +3,6 @@ package com.github.tsaarni.keystore;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.security.KeyStore;
 import java.security.KeyStoreException;

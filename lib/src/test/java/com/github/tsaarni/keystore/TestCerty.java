@@ -191,15 +191,15 @@ public class TestCerty {
         assertEquals(Integer.MAX_VALUE, issuer.getX509Certificate().getBasicConstraints());
 
         Certy endEntity = Certy.newCredential().subject("CN=EndEntity").issuer(issuer);
-        assertArrayEquals(new boolean[] { true, false, true, false, false, false, false, false, false },
+        assertArrayEquals(new boolean[] { true, false, true, false, true, false, false, false, false },
                 endEntity.getX509Certificate().getKeyUsage());
         assertEquals(-1, endEntity.getX509Certificate().getBasicConstraints());
     }
 
     @Test
     void testNotBeforeAndNotAfter() throws Exception {
-        Date wantNotBefore = Date.from(Instant.parse("2020-01-01T09:00:00Z"));
-        Date wantNotAfter = Date.from(Instant.parse("2020-01-01T09:00:00Z"));
+        Date wantNotBefore = Date.from(Instant.parse("2022-01-01T09:00:00Z"));
+        Date wantNotAfter = Date.from(Instant.parse("2022-02-01T09:00:00Z"));
         Duration defaultDuration = Duration.of(365, ChronoUnit.DAYS);
 
         X509Certificate cert1 = Certy.newCredential().subject("CN=joe").notBefore(wantNotBefore).getX509Certificate();
@@ -294,8 +294,8 @@ public class TestCerty {
 
     @Test
     void createPkcs12KeyStore() throws Exception {
-        Certy ca = Certy.newCredential().subject("CN=joe");
-        Certy client = Certy.newCredential().subject("CN=joe");
+        Certy ca = Certy.newCredential().subject("CN=ca");
+        Certy client = Certy.newCredential().subject("CN=client").issuer(ca);
 
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
