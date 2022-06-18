@@ -32,7 +32,8 @@ public class TestReloadingKeyStoreWithTls {
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
         ks.setKeyEntry("server", serverCreds.getPrivateKey(), "secret".toCharArray(), serverCreds.getCertificates());
-        //ks.setKeyEntry("server", serverCreds.getPrivateKey(), null, serverCreds.getCertificates());
+        // ks.setKeyEntry("server", serverCreds.getPrivateKey(), null,
+        // serverCreds.getCertificates());
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
         KeyStore ts = KeyStore.getInstance("PKCS12");
@@ -40,17 +41,19 @@ public class TestReloadingKeyStoreWithTls {
         ts.setCertificateEntry("trusted", caCreds.getCertificate());
         ts.store(Files.newOutputStream(tsPath), "secret".toCharArray());
 
-        // Create KeyManagers with reloading KeyStore.
+        // Create KeyManager with ReloadingKeyStore.
         KeyStore.Builder ksBuilder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
                 "secret", null, null);
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("NewSunX509");
         kmf.init(new KeyStoreBuilderParameters(ksBuilder));
 
+        // Create TrustManager with ReloadingKeyStore.
         KeyStore.Builder tsBuilder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", tsPath,
                 "secret", null, null);
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
         tmf.init(tsBuilder.getKeyStore());
 
+        // Test TLS connection.
         try (TlsTester.Server server = TlsTester.withServerAuth(kmf.getKeyManagers())) {
             Certificate[] serverCerts = TlsTester.connectTo(tmf.getTrustManagers(), server).getServerCertificate();
             assertArrayEquals(serverCreds.getCertificates(), serverCerts);
@@ -58,8 +61,36 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testMutualAuthentication() {
-        // TODO
+    void testMutualAuthentication(@TempDir Path tempDir) throws Exception {
+        // Enable Java KeyManager debug printouts.
+        System.setProperty("javax.net.debug", "keymanager:trustmanager");
+
+        Path serverCaCertPem = tempDir.resolve("server-ca.pem");
+        Path clientCaCertPem = tempDir.resolve("client-ca.pem");
+        Path serverCertPem = tempDir.resolve("server.pem");
+        Path serverKeyPem = tempDir.resolve("server-key.pem");
+        Path clientCertPem = tempDir.resolve("client.pem");
+        Path clientKeyPem = tempDir.resolve("client-key.pem");
+
+        // Create CAs, server and client certificate.
+        Certy serverCaCreds = Certy.newCredential().subject("CN=server-ca").writeCertificateAsPem(serverCaCertPem);
+        Certy clientCaCreds = Certy.newCredential().subject("CN=client-ca").writeCertificateAsPem(clientCaCertPem);
+        Certy serverCreds = Certy.newCredential().subject("CN=server").issuer(serverCaCreds)
+                .writeCertificateAsPem(serverCertPem).writePrivateKeyAsPem(serverKeyPem);
+        Certy clientCreds = Certy.newCredential().subject("CN=client").issuer(clientCaCreds)
+                .writeCertificateAsPem(clientCertPem).writePrivateKeyAsPem(clientKeyPem);
+
+        // Create KeyManager for server.
+        KeyStore.Builder ksBuilder = ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem);
+        KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
+        kmfServer.init(new KeyStoreBuilderParameters(ksBuilder));
+
+        // Create TrustManager for server.
+        // KeyStore.Builder ksBuilder = ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem);
+        // KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
+        // kmfServer.init(new KeyStoreBuilderParameters(ksBuilder));
+
+
     }
 
     @Test

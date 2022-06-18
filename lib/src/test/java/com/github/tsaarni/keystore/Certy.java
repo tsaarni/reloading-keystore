@@ -1,3 +1,18 @@
+/*
+ * Copyright Certy Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.github.tsaarni.keystore;
 
 import java.io.BufferedWriter;
@@ -48,11 +63,13 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 public class Certy {
 
+    /** Key type values fo {@link #keyType()}. */
     public enum KeyType {
         EC,
         RSA
     }
 
+    /** Key usage values for {@link #keyUsages()}. */
     public enum KeyUsage {
         DIGITAL_SIGNATURE(org.bouncycastle.asn1.x509.KeyUsage.digitalSignature),
         NON_REPUDIATION(org.bouncycastle.asn1.x509.KeyUsage.nonRepudiation),
@@ -75,6 +92,7 @@ public class Certy {
         }
     }
 
+    /** Extended key usage values for {@link #extKeyUsages()}. */
     public enum ExtKeyUsage {
         ANY(KeyPurposeId.anyExtendedKeyUsage),
         SERVER_AUTH(KeyPurposeId.id_kp_serverAuth),
@@ -118,98 +136,157 @@ public class Certy {
         extKeyUsages = new ArrayList<>();
     }
 
-    // Defines the distinguished name for the certificate.
-    // Example: CN=Joe.
+    /** Instantiate new credential with default values. */
+    public static Certy newCredential() {
+        return new Certy();
+    }
+
+    /**
+     * Defines the distinguished name for the certificate.<p>
+     * Example: {@code "CN=Joe"}.
+     *
+     * @param val Subject name.
+     */
     public Certy subject(String val) {
         new X500Name(val);
         this.subject = val;
         return this;
     }
 
-    // Defines an optional list of values for x509 Subject Alternative Name extension.
-    // Examples: DNS:www.example.com, IP:1.2.3.4, URI:https://www.example.com.
+    /**
+     * Defines an optional list of values for x509 Subject Alternative Name extension.<p>
+     * Examples: {@code "DNS:www.example.com"</code>},
+     *           {@code "IP:1.2.3.4"},
+     *           {@code "URI:https://www.example.com"}.
+     * @param val List of subject alternative names.<p>
+     */
     public Certy subjectAltNames(List<String> val) {
         this.subjectAltNames = val;
         return this;
     }
 
-    // Defines an optional value for x509 Subject Alternative Name extension.
-    // This version of the method accepts only single name.
-    // Examples: DNS:www.example.com, IP:1.2.3.4, URI:https://www.example.com.
-    public Certy subjectAltNames(String val) {
+    /**
+     * Defines an optional value for x509 Subject Alternative Name extension.<p>
+     * Examples: {@code "DNS:www.example.com"</code>},
+     *           {@code "IP:1.2.3.4"},
+     *           {@code "URI:https://www.example.com"}.
+     *
+     * @param val Subject alternative name.
+     */
+    public Certy subjectAltName(String val) {
         this.subjectAltNames = Arrays.asList(val);
         return this;
     }
 
-    // Defines the certificate key algorithm.
-    // Values: {@link #KeyType.EC}, {@link #KeyType.RSA}
-    // Default: EC
+    /**
+     * Defines the certificate key algorithm.
+     * Defaults to {@code KeyType.EC} if not set.
+     *
+     * @param val Key type.
+     */
     public Certy keyType(KeyType val) {
         this.keyType = val;
         return this;
     }
 
-    // Defines the key length in bits.
-    // Default value is 256 (EC) or 2048 (RSA) if keySize is undefined (when method has not been called).
-    // Examples: For keyType EC: 256, 384, 521. For keyType RSA: 1024, 2048, 4096.
+    /**
+     * Defines the key length in bits.
+     * Default value is 256 (EC) or 2048 (RSA) if keySize is not set.<p>
+     * Examples: For keyType EC: 256, 384, 521.
+     *           For keyType RSA: 1024, 2048, 4096.
+     *
+     * @param val Key size.
+     */
     public Certy keySize(int val) {
         this.keySize = val;
         return this;
     }
 
-    // Automatically defines certificate's NotAfter field by adding duration defined in Expires to the current time.
-    // Default value is 1 year if expires is undefined (when method has not been called).
-    // NotAfter takes precedence over expires.
+    /**
+     * Automatically defines certificate's NotAfter field by adding duration defined in Expires to the current time.
+     * {@link #notAfter()} takes precedence over expires.
+     * The default value is 1 year if not defined
+     *
+     * @param val Time until expiration.
+     */
     public Certy expires(Duration val) {
         this.expires = val;
         return this;
     }
 
-    // Defines certificate not to be valid before this time.
-    // Default value is current time if notBefore is undefined (when method has not been called).
+    /**
+     * Defines certificate not to be valid before this time.
+     * The default value is current time if not defined.
+     *
+     * @param val Date when certificate becomes valid.
+     */
     public Certy notBefore(Date val) {
         this.notBefore = val;
         return this;
     }
 
-    // Defines certificate not to be valid after this time.
-    // Default value is current time + expires if notAfter is undefined (when method has not been called).
+    /**
+     * Defines certificate not to be valid after this time.
+     * Default value is current time + expires if {@code notAfter} is not defined.
+     *
+     * @param val Date when certificate expires.
+     */
     public Certy notAfter(Date val) {
         this.notAfter = val;
         return this;
     }
 
-    // Defines a sequence of values for x509 key usage extension.
-    // If KeyUsage is undefined (when method has not been called), CertSign and CRLSign are set for CA certificates,
-    // KeyEncipherment and DigitalSignature are set for end-entity certificates.
+    /**
+     * Defines a sequence of values for x509 key usage extension.<p>
+     *
+     * If {@code keyUsage} is undefined following defaults are used:<p>
+     * CertSign and CRLSign are set for CA certificates.
+     * KeyEncipherment and DigitalSignature are set for end-entity certificates with RSA key.
+     * KeyEncipherment, DigitalSignature and KeyAgreement are set for end-entity certificates with EC key.
+     *
+     * @param val List of key usages.
+     */
     public Certy keyUsages(List<KeyUsage> val) {
         this.keyUsages = val;
         return this;
     }
 
-    // Defines a sequence of x509 extended key usages.
-    // Not set by default.
+    /**
+     * Defines a sequence of x509 extended key usages.
+     * Not defined by default.
+     *
+     * @param val List of extended key usages.
+     */
     public Certy extKeyUsages(List<ExtKeyUsage> val) {
         this.extKeyUsages = val;
         return this;
     }
 
-    // Defines the issuer Certificate.
-    // Self-signed certificate is generated if Issuer is undefined (when method has not been called).
+    /**
+     * Defines the issuer Certificate.
+     * Self-signed certificate is generated if issuer is not defined.
+     *
+     * @param val Instance of {@code Certy} that will be used to sign this certificate.
+     */
     public Certy issuer(Certy val) {
         this.issuer = val;
         return this;
     }
 
-    // Defines if certificate is / is not CA.
-    // If IsCA is undefined (when method has not been called), true is set by default for self-signed certificates
-    // (when issuer is not defined).
+    /**
+     * Defines certificate's basic constraints isCA attribute.
+     * If IsCA is not defined, self-signed certificates are set as CA certificates, everything else is not set.
+     *
+     * @param val Value for isCA attribute of basic constraints.
+     */
     public Certy isCa(Boolean val) {
         this.isCa = val;
         return this;
     }
 
-    // (Re)generate certificate and private key with currently defined attributes.
+    /**
+     * (Re)generate certificate and private key with currently defined attributes.
+     */
     public Certy generate()
             throws CertificateException, NoSuchAlgorithmException, CertIOException {
         // Traverse the certificate hierarchy recursively to ensure issuing CAs have
@@ -290,7 +367,11 @@ public class Certy {
         return this;
     }
 
-    // Return certificate as PEM.
+    /**
+     * Returns PEM block containing the X509 certificate.
+     *
+     * @return String containing the certificate.
+     */
     public String getCertificateAsPem() throws CertificateException, NoSuchAlgorithmException, IOException {
         ensureGenerated();
 
@@ -303,7 +384,11 @@ public class Certy {
         return writer.toString();
     }
 
-    // Return private key as PEM.
+    /**
+     * Returns PEM block containing the private key in PKCS8 format.
+     *
+     * @return String containing the private key.
+     */
     public String getPrivateKeyAsPem()
             throws IOException, CertificateException, NoSuchAlgorithmException {
         ensureGenerated();
@@ -317,7 +402,11 @@ public class Certy {
         return writer.toString();
     }
 
-    // Write certificate as PEM to a named file.
+    /**
+     * Writes X509 certificate to a file as PEM.
+     *
+     * @param Path to write the PEM file to.
+     */
     public Certy writeCertificateAsPem(Path out)
             throws IOException, CertificateException, NoSuchAlgorithmException {
         ensureGenerated();
@@ -334,7 +423,11 @@ public class Certy {
         return this;
     }
 
-    // Write private key as PEM to a named file.
+    /**
+     * Writes private key in PKCS8 format to a file as PEM.
+     *
+     * @param Path to write the PEM file to.
+     */
     public Certy writePrivateKeyAsPem(Path out) throws IOException, CertificateException, NoSuchAlgorithmException {
         ensureGenerated();
 
@@ -350,21 +443,21 @@ public class Certy {
         return this;
     }
 
-    // Return private key.
-    public PrivateKey getPrivateKey() throws CertificateException, NoSuchAlgorithmException, CertIOException {
-        ensureGenerated();
-
-        return keyPair.getPrivate();
-    }
-
-    // Return certificate.
+    /**
+     * Returns certificate.
+     */
     public Certificate getCertificate() throws CertificateException, NoSuchAlgorithmException, CertIOException {
         ensureGenerated();
 
         return certificate;
     }
 
-    // Convenience method for returning certificate as an array of certificates (returns always just one certificate).
+    /**
+     * Returns certificate as an array.
+     * This is convenience method for use cases where array is required.
+     *
+     * @return Array of certificates. Holds always just single certificate.
+     */
     public Certificate[] getCertificates()
             throws CertificateException, NoSuchAlgorithmException, CertIOException {
         ensureGenerated();
@@ -372,13 +465,27 @@ public class Certy {
         return new Certificate[] { certificate };
     }
 
-    // Convenience method for returning X509Certificate.
+    /**
+     * Returns certificate.
+     * This is convenience for returning certificate as {@code X509Certificate}.
+     */
     public X509Certificate getX509Certificate() throws CertificateException, NoSuchAlgorithmException, CertIOException {
         ensureGenerated();
 
         return (X509Certificate) certificate;
     }
 
+    /**
+     * Returns private key.
+     */
+    public PrivateKey getPrivateKey() throws CertificateException, NoSuchAlgorithmException, CertIOException {
+        ensureGenerated();
+
+        return keyPair.getPrivate();
+    }
+
+
+    // Generates certificate and key pair unless they have been already generated.
     private void ensureGenerated()
             throws CertificateException, NoSuchAlgorithmException, CertIOException {
         if (certificate == null || keyPair == null) {
@@ -421,11 +528,7 @@ public class Certy {
         }
     }
 
-    // Instantiate new credential.
-    public static Certy newCredential() {
-        return new Certy();
-    }
-
+    // Returns new key pair.
     private static KeyPair newKeyPair(KeyType keyType, int keySize) throws NoSuchAlgorithmException {
         KeyPairGenerator keyGen;
         keyGen = KeyPairGenerator.getInstance(keyType.name());

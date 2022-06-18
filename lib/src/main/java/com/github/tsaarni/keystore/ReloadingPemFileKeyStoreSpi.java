@@ -27,7 +27,8 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
      * @throws InvalidKeySpecException
      * @throws KeyStoreException
      */
-    public ReloadingPemFileKeyStoreSpi(List<Path> certs, List<Path> keys) throws IllegalArgumentException, IOException, KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException, CertificateException {
+    public ReloadingPemFileKeyStoreSpi(List<Path> certs, List<Path> keys) throws IllegalArgumentException, IOException,
+            KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException, CertificateException {
 
         if (keys.size() < certs.size()) {
             throw new IllegalArgumentException("Missing private key");
@@ -45,6 +46,13 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
         }
 
         setKeyStoreDelegate(createKeyStore());
+    }
+
+    /**
+     * trustedCerts
+     */
+    public ReloadingPemFileKeyStoreSpi(List<Path> trustedCerts) {
+
     }
 
     /**

@@ -14,8 +14,6 @@ import java.security.cert.Certificate;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLPeerUnverifiedException;
@@ -49,8 +47,14 @@ public class TlsTester {
             SSLServerSocketFactory ssf = ctx.getServerSocketFactory();
             sock = (SSLServerSocket) ssf.createServerSocket(port, 1, InetAddress.getByName(host));
             sock.setEnabledProtocols(protocols);
-            sock.setWantClientAuth(false);
-            sock.setNeedClientAuth(false);
+
+            if (tms == null) {
+                sock.setWantClientAuth(false);
+                sock.setNeedClientAuth(false);
+            } else {
+                sock.setWantClientAuth(true);
+                sock.setNeedClientAuth(true);
+            }
 
             clientCertificates = new CompletableFuture<>();
 

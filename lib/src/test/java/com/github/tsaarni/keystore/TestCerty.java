@@ -248,7 +248,7 @@ public class TestCerty {
     @Test
     void testGettingPemsAsStrings() throws Exception {
         Certy ca = Certy.newCredential().subject("CN=ca");
-        Certy server = Certy.newCredential().subject("CN=server").issuer(ca).subjectAltNames("DNS:localhost");
+        Certy server = Certy.newCredential().subject("CN=server").issuer(ca).subjectAltName("DNS:localhost");
         Certy client = Certy.newCredential().subject("CN=client").keyType(KeyType.RSA).issuer(ca);
 
         expectPemCertificate(new BufferedReader(new StringReader(ca.getCertificateAsPem())), "CN=ca");
