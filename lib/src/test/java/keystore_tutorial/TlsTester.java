@@ -1,4 +1,4 @@
-package com.github.tsaarni.keystore;
+package keystore_tutorial;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;

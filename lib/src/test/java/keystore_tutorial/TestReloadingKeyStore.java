@@ -1,4 +1,4 @@
-package com.github.tsaarni.keystore;
+package keystore_tutorial;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

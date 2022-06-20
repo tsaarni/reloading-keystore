@@ -1,4 +1,4 @@
-package com.github.tsaarni.keystore;
+package keystore_tutorial;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
