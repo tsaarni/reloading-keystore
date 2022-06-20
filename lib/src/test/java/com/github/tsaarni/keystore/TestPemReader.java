@@ -2,6 +2,7 @@ package com.github.tsaarni.keystore;
 
 import org.junit.jupiter.api.Test;
 
+import fi.protonode.certy.Credential;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -9,7 +10,7 @@ public class TestPemReader {
 
     @Test
     void testPemReader() throws Exception {
-        Certy cred = Certy.newCredential().subject("CN=joe");
+        Credential cred = new Credential().subject("CN=joe");
         String pemBundle = cred.getCertificateAsPem() + cred.getPrivateKeyAsPem();
 
         PemReader reader = new PemReader(pemBundle.getBytes());

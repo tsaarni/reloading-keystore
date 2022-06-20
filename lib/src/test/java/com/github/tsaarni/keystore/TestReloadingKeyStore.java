@@ -5,6 +5,8 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import fi.protonode.certy.Credential;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mockStatic;
 
@@ -25,8 +27,8 @@ public class TestReloadingKeyStore {
         Path certPath2 = tempDir.resolve("server2.pem");
         Path keyPath2 = tempDir.resolve("server2-key.pem");
 
-        Certy.newCredential().subject("CN=server1").writeCertificateAsPem(certPath1).writePrivateKeyAsPem(keyPath1);
-        Certy.newCredential().subject("CN=server2").writeCertificateAsPem(certPath2).writePrivateKeyAsPem(keyPath2);
+        new Credential().subject("CN=server1").writeCertificateAsPem(certPath1).writePrivateKeyAsPem(keyPath1);
+        new Credential().subject("CN=server2").writeCertificateAsPem(certPath2).writePrivateKeyAsPem(keyPath2);
 
         List<Path> certs = Arrays.asList(certPath1, certPath2);
         List<Path> keys = Arrays.asList(keyPath2, keyPath2);
@@ -45,8 +47,8 @@ public class TestReloadingKeyStore {
 
     @Test
     void testCreateKeyStoreFromJks(@TempDir Path tempDir) throws Exception {
-        Certy server1 = Certy.newCredential().subject("CN=server1");
-        Certy server2 = Certy.newCredential().subject("CN=server2");
+        Credential server1 = new Credential().subject("CN=server1");
+        Credential server2 = new Credential().subject("CN=server2");
 
         KeyStore ks = KeyStore.getInstance("JKS");
         ks.load(null, null);
@@ -71,8 +73,8 @@ public class TestReloadingKeyStore {
 
     @Test
     void testCreateKeyStoreFromPkcs12(@TempDir Path tempDir) throws Exception {
-        Certy server1 = Certy.newCredential().subject("CN=server1");
-        Certy server2 = Certy.newCredential().subject("CN=server2");
+        Credential server1 = new Credential().subject("CN=server1");
+        Credential server2 = new Credential().subject("CN=server2");
 
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
@@ -107,7 +109,7 @@ public class TestReloadingKeyStore {
             mockedStatic.when(() -> Instant.now()).thenReturn(before);
 
             // Write initial versions of the PEMs to the disk.
-            Certy credBeforeUpdate = Certy.newCredential().subject("CN=server").writeCertificateAsPem(certPath)
+            Credential credBeforeUpdate = new Credential().subject("CN=server").writeCertificateAsPem(certPath)
                     .writePrivateKeyAsPem(keyPath);
 
             // Load PEMs into keystore and check that we got them back.
@@ -119,7 +121,7 @@ public class TestReloadingKeyStore {
             assertEquals(credBeforeUpdate.getPrivateKey(), ks.getKey("0000", null));
 
             // Write updated PEM files to the disk.
-            Certy credAfterUpdate = Certy.newCredential().subject("CN=server").writeCertificateAsPem(certPath)
+            Credential credAfterUpdate = new Credential().subject("CN=server").writeCertificateAsPem(certPath)
                     .writePrivateKeyAsPem(keyPath);
 
             // Check that old PEM files are returned before cache TTL expires.
@@ -145,7 +147,7 @@ public class TestReloadingKeyStore {
             mockedStatic.when(() -> Instant.now()).thenReturn(before);
 
             // Write initial versions of the keystore to the disk.
-            Certy credBeforeUpdate = Certy.newCredential().subject("CN=joe");
+            Credential credBeforeUpdate = new Credential().subject("CN=joe");
 
             KeyStore ks = KeyStore.getInstance("PKCS12");
             ks.load(null, null);
@@ -163,7 +165,7 @@ public class TestReloadingKeyStore {
             assertEquals(credBeforeUpdate.getPrivateKey(), reloadingKs.getKey("cred", null));
 
             // Write updated keystore to the disk.
-            Certy credAfterUpdate = Certy.newCredential().subject("CN=joe");
+            Credential credAfterUpdate = new Credential().subject("CN=joe");
             ks = KeyStore.getInstance("PKCS12");
             ks.load(null, null);
             ks.setKeyEntry("cred", credAfterUpdate.getPrivateKey(), null, credAfterUpdate.getCertificates());
@@ -184,7 +186,7 @@ public class TestReloadingKeyStore {
 
     @Test
     void testKeyStoreWithSortedAliases(@TempDir Path tempDir) throws Exception {
-        Certy cred = Certy.newCredential().subject("CN=joe");
+        Credential cred = new Credential().subject("CN=joe");
 
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);

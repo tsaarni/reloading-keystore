@@ -14,6 +14,8 @@ import javax.net.ssl.TrustManagerFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import fi.protonode.certy.Credential;
+
 public class TestReloadingKeyStoreWithTls {
 
     @Test
@@ -25,8 +27,8 @@ public class TestReloadingKeyStoreWithTls {
         System.setProperty("javax.net.debug", "keymanager:trustmanager");
 
         // Create CA and server certificate.
-        Certy caCreds = Certy.newCredential().subject("CN=ca");
-        Certy serverCreds = Certy.newCredential().subject("CN=server").issuer(caCreds);
+        Credential caCreds = new Credential().subject("CN=ca");
+        Credential serverCreds = new Credential().subject("CN=server").issuer(caCreds);
 
         // Create keystore files.
         KeyStore ks = KeyStore.getInstance("PKCS12");
@@ -73,11 +75,11 @@ public class TestReloadingKeyStoreWithTls {
         Path clientKeyPem = tempDir.resolve("client-key.pem");
 
         // Create CAs, server and client certificate.
-        Certy serverCaCreds = Certy.newCredential().subject("CN=server-ca").writeCertificateAsPem(serverCaCertPem);
-        Certy clientCaCreds = Certy.newCredential().subject("CN=client-ca").writeCertificateAsPem(clientCaCertPem);
-        Certy serverCreds = Certy.newCredential().subject("CN=server").issuer(serverCaCreds)
+        Credential serverCaCreds = new Credential().subject("CN=server-ca").writeCertificateAsPem(serverCaCertPem);
+        Credential clientCaCreds = new Credential().subject("CN=client-ca").writeCertificateAsPem(clientCaCertPem);
+        Credential serverCreds = new Credential().subject("CN=server").issuer(serverCaCreds)
                 .writeCertificateAsPem(serverCertPem).writePrivateKeyAsPem(serverKeyPem);
-        Certy clientCreds = Certy.newCredential().subject("CN=client").issuer(clientCaCreds)
+                Credential clientCreds = new Credential().subject("CN=client").issuer(clientCaCreds)
                 .writeCertificateAsPem(clientCertPem).writePrivateKeyAsPem(clientKeyPem);
 
         // Create KeyManager for server.
