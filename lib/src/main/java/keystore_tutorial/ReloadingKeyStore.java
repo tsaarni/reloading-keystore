@@ -10,7 +10,7 @@ import java.security.NoSuchProviderException;
 import java.security.Provider;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
@@ -23,7 +23,8 @@ public class ReloadingKeyStore extends KeyStore {
             throws NoSuchAlgorithmException, CertificateException, IOException {
         super(keyStoreSpi, provider, type);
 
-        // Calling load(), even with null arguments, will initialize the KeyStore to expected state.
+        // Calling load(), even with null arguments, will initialize the KeyStore to
+        // expected state.
         load(null, null);
     }
 
@@ -38,9 +39,9 @@ public class ReloadingKeyStore extends KeyStore {
         private final String alias;
         private final ProtectionParameter aliasProtection;
 
-        private Builder(KeyStore keyStore, String password, String alias, String aliasPassword) {
+        private Builder(KeyStore keyStore, char[] password, String alias, String aliasPassword) {
             this.keyStore = keyStore;
-            this.protection = password != null ? new PasswordProtection(password.toCharArray()) : null;
+            this.protection = new PasswordProtection(password);
             this.alias = alias;
             this.aliasProtection = aliasPassword != null ? new PasswordProtection(aliasPassword.toCharArray()) : null;
         }
@@ -69,26 +70,58 @@ public class ReloadingKeyStore extends KeyStore {
             return protection;
         }
 
-        public static KeyStore.Builder fromKeyStoreFile(String type, String provider, Path path, String password, String alias,
-                String aliasPassword) throws NoSuchAlgorithmException, CertificateException, KeyStoreException, NoSuchProviderException, IOException  {
+        public static KeyStore.Builder fromKeyStoreFile(String type, String provider, Path path, String password,
+                String alias,
+                String aliasPassword) throws NoSuchAlgorithmException, CertificateException, KeyStoreException,
+                NoSuchProviderException, IOException {
             return new Builder(new ReloadingKeyStore(new ReloadingKeyStoreFileSpi(type, provider, path, password), null,
-                    "ReloadingKeyStore"), password, alias, aliasPassword);
+                    "ReloadingKeyStore"), password.toCharArray(), alias, aliasPassword);
         }
 
         public static KeyStore.Builder fromPem(List<Path> certs, List<Path> keys)
                 throws NoSuchAlgorithmException, CertificateException, IllegalArgumentException, KeyStoreException,
                 InvalidKeySpecException, IOException {
-            return new Builder(
-                    new ReloadingKeyStore(new ReloadingPemFileKeyStoreSpi(certs, keys), null, "ReloadingKeyStore"),
+
+            if (keys.size() < certs.size()) {
+                throw new IllegalArgumentException("Missing private key");
+            } else if (keys.size() > certs.size()) {
+                throw new IllegalArgumentException("Missing X.509 certificate");
+            } else if (keys.isEmpty()) {
+                throw new IllegalArgumentException("No credentials configured");
+            }
+
+            ReloadingPemFileKeyStoreSpi spi = new ReloadingPemFileKeyStoreSpi();
+
+            Iterator<Path> cpi = certs.iterator();
+            Iterator<Path> kpi = keys.iterator();
+            while (cpi.hasNext() && kpi.hasNext()) {
+                spi.setKeyEntry(cpi.next(), kpi.next());
+            }
+
+            return new Builder(new ReloadingKeyStore(spi, null, "ReloadingKeyStore"),
                     null,
                     null, null);
         }
 
-        public static KeyStore.Builder fromPem(Path cert, Path key) throws NoSuchAlgorithmException, CertificateException, IllegalArgumentException, KeyStoreException, InvalidKeySpecException, IOException {
-            return new Builder(
-                    new ReloadingKeyStore(new ReloadingPemFileKeyStoreSpi(Arrays.asList(cert), Arrays.asList(key)),
-                            null, "ReloadingKeyStore"),
-                    null, null, null);
+        public static KeyStore.Builder fromPem(Path cert, Path key)
+                throws NoSuchAlgorithmException, CertificateException, IllegalArgumentException, KeyStoreException,
+                InvalidKeySpecException, IOException {
+
+            ReloadingPemFileKeyStoreSpi spi = new ReloadingPemFileKeyStoreSpi();
+            spi.setKeyEntry(cert, key);
+            return new Builder(new ReloadingKeyStore(spi, null, "ReloadingKeyStore"),
+                    ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD,
+                    null, null);
+        }
+
+        public static KeyStore.Builder fromPem(Path cert) throws KeyStoreException, InvalidKeySpecException,
+                NoSuchAlgorithmException, CertificateException, IOException {
+
+            ReloadingPemFileKeyStoreSpi spi = new ReloadingPemFileKeyStoreSpi();
+            spi.setCertificateEntry(cert);
+            return new Builder(new ReloadingKeyStore(spi, null, "ReloadingKeyStore"),
+                    null,
+                    null, null);
         }
 
     }

@@ -19,7 +19,7 @@ import fi.protonode.certy.Credential;
 public class TestReloadingKeyStoreWithTls {
 
     @Test
-    void testServerAuthentication(@TempDir Path tempDir) throws Exception {
+    void testServerAuthenticationWithKeyStore(@TempDir Path tempDir) throws Exception {
         Path ksPath = tempDir.resolve("server.p12");
         Path tsPath = tempDir.resolve("trusted.p12");
 
@@ -43,27 +43,55 @@ public class TestReloadingKeyStoreWithTls {
         ts.setCertificateEntry("trusted", caCreds.getCertificate());
         ts.store(Files.newOutputStream(tsPath), "secret".toCharArray());
 
-        // Create KeyManager with ReloadingKeyStore.
-        KeyStore.Builder ksBuilder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
-                "secret", null, null);
-        KeyManagerFactory kmf = KeyManagerFactory.getInstance("NewSunX509");
-        kmf.init(new KeyStoreBuilderParameters(ksBuilder));
+        // Create KeyManager for server.
+        KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
+        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
+                "secret", null, null)));
 
-        // Create TrustManager with ReloadingKeyStore.
-        KeyStore.Builder tsBuilder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", tsPath,
-                "secret", null, null);
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
-        tmf.init(tsBuilder.getKeyStore());
+        // Create TrustManager for client.
+        TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
+        tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", tsPath,
+                "secret", null, null).getKeyStore());
 
         // Test TLS connection.
-        try (TlsTester.Server server = TlsTester.withServerAuth(kmf.getKeyManagers())) {
-            Certificate[] serverCerts = TlsTester.connectTo(tmf.getTrustManagers(), server).getServerCertificate();
+        try (TlsTester.Server server = TlsTester.withServerAuth(kmfServer.getKeyManagers())) {
+            Certificate[] serverCerts = TlsTester.connect(tmfClient.getTrustManagers(), server).getServerCertificate();
             assertArrayEquals(serverCreds.getCertificates(), serverCerts);
         }
     }
 
     @Test
-    void testMutualAuthentication(@TempDir Path tempDir) throws Exception {
+    void testServerAuthenticationWithPem(@TempDir Path tempDir) throws Exception {
+        // Enable Java KeyManager debug printouts.
+        //System.setProperty("javax.net.debug", "keymanager:trustmanager");
+        System.setProperty("javax.net.debug", "keymanager");
+
+        Path serverCaCertPem = tempDir.resolve("server-ca.pem");
+        Path serverCertPem = tempDir.resolve("server.pem");
+        Path serverKeyPem = tempDir.resolve("server-key.pem");
+
+        // Create CAs and server certificate.
+        Credential serverCaCreds = new Credential().subject("CN=server-ca").writeCertificateAsPem(serverCaCertPem);
+        Credential serverCreds = new Credential().subject("CN=server").issuer(serverCaCreds)
+                .writeCertificateAsPem(serverCertPem).writePrivateKeyAsPem(serverKeyPem);
+
+        // Create KeyManager for server.
+        KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
+        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem)));
+
+        // Create TrustManager for client.
+        TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
+        tmfClient.init(ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore());
+
+        // Test TLS connection.
+        try (TlsTester.Server server = TlsTester.withServerAuth(kmfServer.getKeyManagers())) {
+            Certificate[] serverCerts = TlsTester.connect(tmfClient.getTrustManagers(), server).getServerCertificate();
+            assertArrayEquals(serverCreds.getCertificates(), serverCerts);
+        }
+    }
+
+    @Test
+    void testMutualAuthenticationWithPem(@TempDir Path tempDir) throws Exception {
         // Enable Java KeyManager debug printouts.
         System.setProperty("javax.net.debug", "keymanager:trustmanager");
 
@@ -79,20 +107,41 @@ public class TestReloadingKeyStoreWithTls {
         Credential clientCaCreds = new Credential().subject("CN=client-ca").writeCertificateAsPem(clientCaCertPem);
         Credential serverCreds = new Credential().subject("CN=server").issuer(serverCaCreds)
                 .writeCertificateAsPem(serverCertPem).writePrivateKeyAsPem(serverKeyPem);
-                Credential clientCreds = new Credential().subject("CN=client").issuer(clientCaCreds)
+        Credential clientCreds = new Credential().subject("CN=client").issuer(clientCaCreds)
                 .writeCertificateAsPem(clientCertPem).writePrivateKeyAsPem(clientKeyPem);
 
         // Create KeyManager for server.
-        KeyStore.Builder ksBuilder = ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem);
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
-        kmfServer.init(new KeyStoreBuilderParameters(ksBuilder));
+        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem)));
 
         // Create TrustManager for server.
-        // KeyStore.Builder ksBuilder = ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem);
-        // KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
-        // kmfServer.init(new KeyStoreBuilderParameters(ksBuilder));
+        TrustManagerFactory tmfServer = TrustManagerFactory.getInstance("PKIX");
+        // tmfServer.init(new CertPathTrustManagerParameters(new PKIXBuilderParameters(
+        // ReloadingKeyStore.Builder.fromPem(clientCaCertPem).getKeyStore(), new
+        // X509CertSelector())));
+        tmfServer.init(ReloadingKeyStore.Builder.fromPem(clientCaCertPem).getKeyStore());
 
+        // Create KeyManager for client.
+        KeyManagerFactory kmfClient = KeyManagerFactory.getInstance("NewSunX509");
+        kmfClient.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(clientCertPem, clientKeyPem)));
 
+        // Create TrustManager for client.
+        TrustManagerFactory tmfClient = TrustManagerFactory.getInstance("PKIX");
+        tmfClient.init(ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore());
+        // tmfClient.init(new CertPathTrustManagerParameters(new PKIXBuilderParameters(
+        // ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore(), new
+        // X509CertSelector())));
+
+        // Test TLS connection.
+        try (TlsTester.Server server = TlsTester.withMutualAuth(kmfServer.getKeyManagers(),
+                tmfServer.getTrustManagers())) {
+            Certificate[] serverCerts = TlsTester
+                    .connect(kmfClient.getKeyManagers(), tmfClient.getTrustManagers(), server)
+                    .getServerCertificate();
+            Certificate[] clientCerts = server.getClientCertificates();
+            assertArrayEquals(serverCreds.getCertificates(), serverCerts);
+            assertArrayEquals(clientCreds.getCertificates(), clientCerts);
+        }
     }
 
     @Test

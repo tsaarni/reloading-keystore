@@ -7,10 +7,10 @@ import java.nio.file.attribute.FileTime;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -18,8 +18,11 @@ import org.slf4j.LoggerFactory;
 
 public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
 
+    public static final char[] IN_MEMORY_KEYSTORE_PASSWORD = "".toCharArray();
+
     private static final Logger log = LoggerFactory.getLogger(ReloadingPemFileKeyStoreSpi.class);
-    private final List<FileCredentialInfo> fileCredentials = new ArrayList<>();
+    private final List<KeyFileEntry> keyFileEntries = new ArrayList<>();
+    private final List<CertificateFileEntry> certificateFileEntries = new ArrayList<>();
 
     /**
      * @throws CertificateException
@@ -27,32 +30,19 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
      * @throws InvalidKeySpecException
      * @throws KeyStoreException
      */
-    public ReloadingPemFileKeyStoreSpi(List<Path> certs, List<Path> keys) throws IllegalArgumentException, IOException,
-            KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException, CertificateException {
+    public ReloadingPemFileKeyStoreSpi() {
+    }
 
-        if (keys.size() < certs.size()) {
-            throw new IllegalArgumentException("Missing private key");
-        } else if (keys.size() > certs.size()) {
-            throw new IllegalArgumentException("Missing X.509 certificate");
-        } else if (keys.isEmpty()) {
-            throw new IllegalArgumentException("No credentials configured");
-        }
-
-        // Load credentials that were passed as file paths.
-        Iterator<Path> cpi = certs.iterator();
-        Iterator<Path> kpi = keys.iterator();
-        while (cpi.hasNext() && kpi.hasNext()) {
-            fileCredentials.add(new FileCredentialInfo(cpi.next(), kpi.next()));
-        }
-
+    public void setKeyEntry(Path cert, Path key) throws KeyStoreException, InvalidKeySpecException,
+            NoSuchAlgorithmException, CertificateException, IOException {
+        keyFileEntries.add(new KeyFileEntry(cert, key));
         setKeyStoreDelegate(createKeyStore());
     }
 
-    /**
-     * trustedCerts
-     */
-    public ReloadingPemFileKeyStoreSpi(List<Path> trustedCerts) {
-
+    public void setCertificateEntry(Path cert) throws KeyStoreException, InvalidKeySpecException,
+            NoSuchAlgorithmException, CertificateException, IOException {
+        certificateFileEntries.add(new CertificateFileEntry(cert));
+        setKeyStoreDelegate(createKeyStore());
     }
 
     /**
@@ -64,23 +54,30 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
      * @throws InvalidKeySpecException
      * @throws KeyStoreException
      */
-    void refresh() throws KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException, CertificateException, IOException {
+    void refresh() throws KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException, CertificateException,
+            IOException {
+        // Check if any of the files has been updated.
+        // If yes, update the last modification timestamp for the file(s) and recreate delegate KeyStore with new content.
         boolean wasReloaded = false;
         int i = 0;
-        for (FileCredentialInfo fc : fileCredentials) {
-            try {
-                if (fc.needsReload()) {
-                    fileCredentials.set(i, new FileCredentialInfo(fc.certPath, fc.keyPath));
-                    wasReloaded = true;
-                }
-            } catch (Exception e) {
-                log.error("Failed to load: ", e);
+        for (KeyFileEntry e : keyFileEntries) {
+            if (e.needsReload()) {
+                keyFileEntries.set(i, new KeyFileEntry(e.certPath, e.keyPath));
+                wasReloaded = true;
             }
             i++;
         }
-
+        i = 0;
+        for (CertificateFileEntry e : certificateFileEntries) {
+            if (e.needsReload()) {
+                certificateFileEntries.set(i, new CertificateFileEntry(e.certPath));
+                wasReloaded = true;
+            }
+            i++;
+        }
         // Re-generate KeyStore.
         if (wasReloaded) {
+            log.debug("Refreshing KeyStore");
             setKeyStoreDelegate(createKeyStore());
         }
     }
@@ -93,35 +90,45 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
      * @throws NoSuchAlgorithmException
      * @throws InvalidKeySpecException
      */
-    private KeyStore createKeyStore() throws KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException, CertificateException, IOException {
-        log.debug("Creating new KeyStore.");
+    private KeyStore createKeyStore() throws KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException,
+            CertificateException, IOException {
+        log.debug("Creating new in-memory PKCS12 KeyStore.");
         KeyStore ks = KeyStore.getInstance("PKCS12");
 
         // Calling load(), even with null arguments, will initialize the KeyStore to expected state.
         ks.load(null, null);
 
         int i = 0;
-        for (FileCredentialInfo fc : fileCredentials) {
-            String alias = String.format("%04d", i++);
-            log.debug("Storing files {} and {} with alias {}", fc.keyPath, fc.certPath, alias);
-            ks.setKeyEntry(alias, PemCredentialFactory.generatePrivateKey(fc.keyPath), null,
-                    PemCredentialFactory.generateCertificates(fc.certPath));
 
+        // Load certificates + private keys.
+        for (KeyFileEntry e : keyFileEntries) {
+            String alias = String.format("%04d", i++);
+            log.debug("Adding key entry with alias {}: {}, {}", alias, e.keyPath, e.certPath);
+            ks.setKeyEntry(alias, PemCredentialFactory.generatePrivateKey(e.keyPath), IN_MEMORY_KEYSTORE_PASSWORD,
+                    PemCredentialFactory.generateCertificates(e.certPath));
         }
+        // Load trusted certificates.
+        for (CertificateFileEntry e : certificateFileEntries) {
+            String alias = String.format("%04d", i++);
+            log.debug("Adding certificate entry with alias {}: {}", alias, e.certPath);
+            for (Certificate c : PemCredentialFactory.generateCertificates(e.certPath)) {
+                ks.setCertificateEntry(alias, c);
+            }
+        }
+
         return ks;
     }
 
     /**
-     * Holds the path of the certificate and key files and the modification
-     * timestamps for the latest reload.
+     * Holds the path of the certificate and key files and the modification timestamps when last loaded.
      */
-    class FileCredentialInfo {
+    class KeyFileEntry {
         private final Path certPath;
         private final Path keyPath;
         private final FileTime certLastModified;
         private final FileTime keyLastModified;
 
-        FileCredentialInfo(Path certPath, Path keyPath) throws IOException {
+        KeyFileEntry(Path certPath, Path keyPath) throws IOException {
             this.certPath = certPath;
             this.keyPath = keyPath;
             this.certLastModified = Files.getLastModifiedTime(certPath);
@@ -131,6 +138,23 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
         boolean needsReload() throws IOException {
             return (certLastModified.compareTo(Files.getLastModifiedTime(certPath)) < 0) ||
                     (keyLastModified.compareTo(Files.getLastModifiedTime(keyPath)) < 0);
+        }
+    }
+
+    /**
+     * Holds the path of the certificate file and the modification timestamps when last loaded.
+     */
+    class CertificateFileEntry {
+        private final Path certPath;
+        private final FileTime certLastModified;
+
+        CertificateFileEntry(Path certPath) throws IOException {
+            this.certPath = certPath;
+            this.certLastModified = Files.getLastModifiedTime(certPath);
+        }
+
+        boolean needsReload() throws IOException {
+            return certLastModified.compareTo(Files.getLastModifiedTime(certPath)) < 0;
         }
     }
 }

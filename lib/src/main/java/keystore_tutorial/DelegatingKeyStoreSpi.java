@@ -63,11 +63,13 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
     }
 
     void setKeyStoreDelegate(KeyStore delegate) {
+        log.debug("New KeyStore delegate set");
         this.delegate.set(new Delegate(delegate));
     }
 
     @Override
     public Key engineGetKey(String alias, char[] password) throws NoSuchAlgorithmException, UnrecoverableKeyException {
+        log.debug("engineGetKey()");
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.getKey(alias, password);
@@ -79,6 +81,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate[] engineGetCertificateChain(String alias) {
+        log.debug("engineGetCertificateChain()");
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.getCertificateChain(alias);
@@ -90,6 +93,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Certificate engineGetCertificate(String alias) {
+        log.debug("engineGetCertificate()");
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.getCertificate(alias);
@@ -101,6 +105,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Date engineGetCreationDate(String alias) {
+        log.debug("engineGetCreationDate()");
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.getCreationDate(alias);
@@ -112,6 +117,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public Enumeration<String> engineAliases() {
+        log.debug("engineAliases()");
         refreshCachedKeyStore();
         // Return aliases in sorted order instead of the order that underlying KeyStore would return them.
         // This allows user to have expected fallback behavior when KeyManager selects server certificate in cases
@@ -121,6 +127,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public boolean engineContainsAlias(String alias) {
+        log.debug("engineContainsAlias({})", alias);
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.containsAlias(alias);
@@ -132,6 +139,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public int engineSize() {
+        log.debug("engineSize()");
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.size();
@@ -143,6 +151,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public boolean engineIsKeyEntry(String alias) {
+        log.debug("engineIsKeyEntry()");
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.isKeyEntry(alias);
@@ -154,6 +163,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public boolean engineIsCertificateEntry(String alias) {
+        log.debug("engineIsCertificateEntry({})", alias);
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.isCertificateEntry(alias);
@@ -165,6 +175,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     @Override
     public String engineGetCertificateAlias(Certificate cert) {
+        log.debug("engineGetCertificateAlias()");
         refreshCachedKeyStore();
         try {
             return delegate.get().keyStore.getCertificateAlias(cert);
@@ -178,6 +189,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
     public void engineLoad(InputStream stream, char[] password)
             throws IOException, NoSuchAlgorithmException, CertificateException {
         // Nothing to do here since implementations of this class have their own means to load certificates and keys.
+        log.debug("engineLoad()");
     }
 
     private static final String IMMUTABLE_KEYSTORE_ERR = "Modifying keystore is not supported";

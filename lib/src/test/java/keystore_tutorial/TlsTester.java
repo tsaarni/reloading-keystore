@@ -12,8 +12,12 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLPeerUnverifiedException;
@@ -26,7 +30,6 @@ import javax.net.ssl.TrustManager;
 
 public class TlsTester {
 
-
     private TlsTester() {
     }
 
@@ -37,11 +40,13 @@ public class TlsTester {
         private ExecutorService executor = Executors.newSingleThreadExecutor();
         private final SSLContext ctx = SSLContext.getInstance("TLS");
         private SSLServerSocket sock;
-        private String[] protocols = new String[] {"TLSv1.2"};
+        private String[] protocols = new String[] { "TLSv1.2" };
+        private boolean clientAuthentication;
 
         CompletableFuture<Certificate[]> clientCertificates;
 
-        Server(KeyManager[] kms, TrustManager[] tms) throws NoSuchAlgorithmException, KeyManagementException, IOException {
+        Server(KeyManager[] kms, TrustManager[] tms)
+                throws NoSuchAlgorithmException, KeyManagementException, IOException {
             ctx.init(kms, tms, null);
 
             SSLServerSocketFactory ssf = ctx.getServerSocketFactory();
@@ -49,9 +54,11 @@ public class TlsTester {
             sock.setEnabledProtocols(protocols);
 
             if (tms == null) {
+                clientAuthentication = false;
                 sock.setWantClientAuth(false);
                 sock.setNeedClientAuth(false);
             } else {
+                clientAuthentication = true;
                 sock.setWantClientAuth(true);
                 sock.setNeedClientAuth(true);
             }
@@ -76,10 +83,14 @@ public class TlsTester {
             try (SSLSocket client = (SSLSocket) sock.accept()) {
                 InputStream is = new BufferedInputStream(client.getInputStream());
                 OutputStream os = new BufferedOutputStream(client.getOutputStream());
+                if (clientAuthentication) {
+                    SSLSession sess = client.getSession();
+                    clientCertificates.complete(sess.getPeerCertificates());
+                }
+
+                // TODO: TLS handshake does not finalize unless we block on read?
                 byte[] data = new byte[2048];
                 int len = is.read(data);
-                SSLSession sess = client.getSession();
-                clientCertificates.complete(sess.getPeerCertificates());
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -93,6 +104,13 @@ public class TlsTester {
             return host;
         }
 
+        public Certificate[] getClientCertificates() throws InterruptedException, ExecutionException, SSLPeerUnverifiedException {
+            try {
+                return clientCertificates.get(2, TimeUnit.SECONDS);
+            } catch (TimeoutException e) {
+                throw new SSLPeerUnverifiedException("Did not receive client certificate");
+            }
+        }
     }
 
     static class Client {
@@ -126,7 +144,13 @@ public class TlsTester {
         return new Server(kms, tms);
     }
 
-    static public Client connectTo(TrustManager[] tms, Server server) throws UnknownHostException, IOException, KeyManagementException, NoSuchAlgorithmException {
+    static public Client connect(TrustManager[] tms, Server server)
+            throws UnknownHostException, IOException, KeyManagementException, NoSuchAlgorithmException {
         return new Client(null, tms).connect(server.getHost(), server.getPort());
+    }
+
+    static public Client connect(KeyManager[] kms, TrustManager[] tms, Server server)
+            throws KeyManagementException, UnknownHostException, NoSuchAlgorithmException, IOException {
+        return new Client(kms, tms).connect(server.getHost(), server.getPort());
     }
 }

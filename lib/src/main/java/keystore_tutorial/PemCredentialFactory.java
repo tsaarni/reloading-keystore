@@ -15,13 +15,19 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public class PemCredentialFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(PemCredentialFactory.class);
 
     private PemCredentialFactory() {
         // Empty.
     }
 
     public static Certificate[] generateCertificates(Path p) throws IOException, CertificateException {
+        log.debug("Loading PEM certificate(s) from {}", p);
         List<Certificate> certs = new ArrayList<>();
         try (InputStream input = Files.newInputStream(p)) {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
@@ -32,7 +38,10 @@ public class PemCredentialFactory {
         return certs.toArray(new Certificate[0]);
     }
 
-    public static PrivateKey generatePrivateKey(Path p) throws IOException, InvalidKeySpecException, NoSuchAlgorithmException {
+    public static PrivateKey generatePrivateKey(Path p)
+            throws IOException, InvalidKeySpecException, NoSuchAlgorithmException {
+        log.debug("Loading PEM private key from {}", p);
+
         // Loop through PEM blocks until PRIVATE KEY type.
         PemReader.Block block;
         while ((block = new PemReader(p).decode()) != null) {
@@ -43,6 +52,7 @@ public class PemCredentialFactory {
 
         // Throw exception if no PRIVATE KEY in PEM file.
         if (block == null) {
+            log.error("Cannot find PRIVATE KEY PEM block in {}", p);
             throw new IllegalArgumentException("PEM file does not have private key");
         }
 
@@ -58,6 +68,7 @@ public class PemCredentialFactory {
 
         // Throw exception if parsing failed for all algorithms.
         if (pkey == null) {
+            log.error("Cannot decode private key {}", p);
             throw new InvalidKeySpecException("Invalid private key");
         }
 
@@ -65,12 +76,14 @@ public class PemCredentialFactory {
     }
 
     private static PrivateKey tryDecodePkey(String algo, PKCS8EncodedKeySpec spec) throws NoSuchAlgorithmException {
+        PrivateKey pkey = null;
         try {
-            return KeyFactory.getInstance(algo).generatePrivate(spec);
+            pkey = KeyFactory.getInstance(algo).generatePrivate(spec);
+            log.debug("Found {} private key", algo);
         } catch (InvalidKeySpecException e) {
             // Ignore exception and return null if decoding fails.
-            return null;
         }
+        return pkey;
     }
 
 }
