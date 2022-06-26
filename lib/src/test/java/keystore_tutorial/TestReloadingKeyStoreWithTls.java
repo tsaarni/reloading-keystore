@@ -1,11 +1,21 @@
 package keystore_tutorial;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyManagementException;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.NoSuchProviderException;
+import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.KeyStoreBuilderParameters;
@@ -53,8 +63,8 @@ public class TestReloadingKeyStoreWithTls {
         tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", tsPath,
                 "secret", null, null).getKeyStore());
 
-        // Test TLS connection.
-        try (TlsTester.Server server = TlsTester.withServerAuth(kmfServer.getKeyManagers())) {
+        // Create TLS connection.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] serverCerts = TlsTester.connect(tmfClient.getTrustManagers(), server).getServerCertificate();
             assertArrayEquals(serverCreds.getCertificates(), serverCerts);
         }
@@ -63,7 +73,7 @@ public class TestReloadingKeyStoreWithTls {
     @Test
     void testServerAuthenticationWithPem(@TempDir Path tempDir) throws Exception {
         // Enable Java KeyManager debug printouts.
-        //System.setProperty("javax.net.debug", "keymanager:trustmanager");
+        // System.setProperty("javax.net.debug", "keymanager:trustmanager");
         System.setProperty("javax.net.debug", "keymanager");
 
         Path serverCaCertPem = tempDir.resolve("server-ca.pem");
@@ -83,8 +93,8 @@ public class TestReloadingKeyStoreWithTls {
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
         tmfClient.init(ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore());
 
-        // Test TLS connection.
-        try (TlsTester.Server server = TlsTester.withServerAuth(kmfServer.getKeyManagers())) {
+        // Create TLS connection.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] serverCerts = TlsTester.connect(tmfClient.getTrustManagers(), server).getServerCertificate();
             assertArrayEquals(serverCreds.getCertificates(), serverCerts);
         }
@@ -132,8 +142,8 @@ public class TestReloadingKeyStoreWithTls {
         // ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore(), new
         // X509CertSelector())));
 
-        // Test TLS connection.
-        try (TlsTester.Server server = TlsTester.withMutualAuth(kmfServer.getKeyManagers(),
+        // Create TLS connection.
+        try (TlsTester.Server server = TlsTester.serverWithMutualAuth(kmfServer.getKeyManagers(),
                 tmfServer.getTrustManagers())) {
             Certificate[] serverCerts = TlsTester
                     .connect(kmfClient.getKeyManagers(), tmfClient.getTrustManagers(), server)
@@ -145,7 +155,91 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testMultipleServerCertificateWithSniSelection() {
+    void testMultipleServerCertificateWithSniSelection(@TempDir Path tempDir)
+            throws CertificateException, NoSuchAlgorithmException, IOException, UnrecoverableKeyException,
+            KeyStoreException, KeyManagementException, InvalidAlgorithmParameterException, NoSuchProviderException {
+
+        // Create CA and server certificates for a server that supports several servernames / virtualhosts.
+        Credential serverCaCreds = new Credential().subject("CN=server-ca");
+        KeyManagerFactory kmfServer = createKeyManagerFactory(tempDir,
+                new Credential().subject("CN=foo").issuer(serverCaCreds).subjectAltName("DNS:foo.com"),
+                new Credential().subject("CN=bar").issuer(serverCaCreds).subjectAltName("DNS:bar.com"),
+                new Credential().subject("CN=00-fallback-credentials").issuer(serverCaCreds));
+        TrustManagerFactory tmfClient = createTrustManagerFactory(tempDir, serverCaCreds);
+
+        // Create TLS connection with SNI servername: foo.com.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
+            Certificate[] serverCerts = TlsTester.connectWithSni(tmfClient.getTrustManagers(), "foo.com", server)
+                    .getServerCertificate();
+            assertEquals("CN=foo", ((X509Certificate) serverCerts[0]).getSubjectX500Principal().toString());
+        }
+
+        // Create TLS connection with SNI servername: bar.com.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
+            Certificate[] serverCerts = TlsTester.connectWithSni(tmfClient.getTrustManagers(), "bar.com", server)
+                    .getServerCertificate();
+            assertEquals("CN=bar", ((X509Certificate) serverCerts[0]).getSubjectX500Principal().toString());
+        }
+
+        // Create TLS connection with SNI servername that does not match: unknown.com.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
+            Certificate[] serverCerts = TlsTester.connectWithSni(tmfClient.getTrustManagers(), "unknown.com", server)
+                    .getServerCertificate();
+            assertEquals("CN=00-fallback-credentials",
+                    ((X509Certificate) serverCerts[0]).getSubjectX500Principal().toString());
+        }
+
+        // Create TLS connection without SNI.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
+            Certificate[] serverCerts = TlsTester.connect(tmfClient.getTrustManagers(), server)
+                    .getServerCertificate();
+            assertEquals("CN=00-fallback-credentials",
+                    ((X509Certificate) serverCerts[0]).getSubjectX500Principal().toString());
+        }
+    }
+
+    private KeyManagerFactory createKeyManagerFactory(Path tempDir, Credential... credentials)
+            throws KeyStoreException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException,
+            IOException, InvalidAlgorithmParameterException, NoSuchProviderException {
+
+        // Create empty KeyStore.
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+
+        // Add given certificates and private keys as KeyEntries.
+        for (Credential c : credentials) {
+            ks.setKeyEntry(c.getX509Certificate().getSubjectX500Principal().toString(),
+                    c.getPrivateKey(), "".toCharArray(), c.getCertificates());
+        }
+
+        // Store keystore to disk.
+        Path ksPath = tempDir.resolve(ks.toString());
+        ks.store(Files.newOutputStream(ksPath), "".toCharArray());
+
+        // Create KeyManagerFactory and ReloadingKeyStore for the stored keystore.
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("NewSunX509");
+        kmf.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
+                "", null, null)));
+
+        return kmf;
+    }
+
+    private TrustManagerFactory createTrustManagerFactory(Path tempDir, Credential... credentials)
+            throws KeyStoreException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException,
+            IOException {
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+        for (Credential c : credentials) {
+            ks.setKeyEntry(c.getX509Certificate().getSubjectX500Principal().toString(),
+                    c.getPrivateKey(), "".toCharArray(), c.getCertificates());
+        }
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
+        tmf.init(ks);
+        return tmf;
+    }
+
+    @Test
+    void testFallbackCertificateSelection() {
         // TODO
     }
 
@@ -165,12 +259,12 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testServerCertificateRotation() {
+    void testServerCertificateHotReload() {
         // TODO
     }
 
     @Test
-    void testClientCertificateRotation() {
+    void testClientCertificateHotReload() {
         // TODO
     }
 

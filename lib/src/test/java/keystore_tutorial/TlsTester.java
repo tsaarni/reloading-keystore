@@ -11,6 +11,7 @@ import java.net.UnknownHostException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.Certificate;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -19,7 +20,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import javax.net.ssl.KeyManager;
+import javax.net.ssl.SNIHostName;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLPeerUnverifiedException;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
@@ -83,14 +86,15 @@ public class TlsTester {
             try (SSLSocket client = (SSLSocket) sock.accept()) {
                 InputStream is = new BufferedInputStream(client.getInputStream());
                 OutputStream os = new BufferedOutputStream(client.getOutputStream());
+                client.startHandshake();
                 if (clientAuthentication) {
                     SSLSession sess = client.getSession();
                     clientCertificates.complete(sess.getPeerCertificates());
                 }
 
                 // TODO: TLS handshake does not finalize unless we block on read?
-                byte[] data = new byte[2048];
-                int len = is.read(data);
+                // byte[] data = new byte[2048];
+                // int len = is.read(data);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -104,7 +108,8 @@ public class TlsTester {
             return host;
         }
 
-        public Certificate[] getClientCertificates() throws InterruptedException, ExecutionException, SSLPeerUnverifiedException {
+        public Certificate[] getClientCertificates()
+                throws InterruptedException, ExecutionException, SSLPeerUnverifiedException {
             try {
                 return clientCertificates.get(2, TimeUnit.SECONDS);
             } catch (TimeoutException e) {
@@ -118,14 +123,24 @@ public class TlsTester {
         private final SSLContext ctx = SSLContext.getInstance("TLS");
         SSLSocket socket;
 
-        Client(KeyManager[] kms, TrustManager[] tms) throws NoSuchAlgorithmException, KeyManagementException {
+        Client(KeyManager[] kms, TrustManager[] tms)
+                throws NoSuchAlgorithmException, KeyManagementException {
             ctx.init(kms, tms, null);
 
         }
 
-        Client connect(String host, int port) throws UnknownHostException, IOException {
+        Client connect(String host, int port, String serverName) throws UnknownHostException, IOException {
             SSLSocketFactory sf = ctx.getSocketFactory();
             socket = (SSLSocket) sf.createSocket(host, port);
+
+            if (serverName != null && !serverName.isEmpty()) {
+                SSLParameters params = socket.getSSLParameters();
+                SNIHostName sni = new SNIHostName(serverName);
+                params.setServerNames(Arrays.asList(sni));
+                socket.setSSLParameters(params);
+            }
+
+            socket.startHandshake();
             return this;
         }
 
@@ -134,23 +149,45 @@ public class TlsTester {
         }
     }
 
-    static public Server withServerAuth(KeyManager[] kms)
+    static public Server serverWithServerAuth(KeyManager[] kms)
             throws KeyManagementException, NoSuchAlgorithmException, IOException {
         return new Server(kms, null);
     }
 
-    static public Server withMutualAuth(KeyManager[] kms, TrustManager[] tms)
+    static public Server serverWithMutualAuth(KeyManager[] kms, TrustManager[] tms)
             throws KeyManagementException, NoSuchAlgorithmException, IOException {
         return new Server(kms, tms);
     }
 
+    /**
+     * Connects the server with TLS server authentication.
+     */
     static public Client connect(TrustManager[] tms, Server server)
             throws UnknownHostException, IOException, KeyManagementException, NoSuchAlgorithmException {
-        return new Client(null, tms).connect(server.getHost(), server.getPort());
+        return new Client(null, tms).connect(server.getHost(), server.getPort(), null);
     }
 
+    /**
+     * Connects the server with TLS server and client authentication.
+     */
     static public Client connect(KeyManager[] kms, TrustManager[] tms, Server server)
             throws KeyManagementException, UnknownHostException, NoSuchAlgorithmException, IOException {
-        return new Client(kms, tms).connect(server.getHost(), server.getPort());
+        return new Client(kms, tms).connect(server.getHost(), server.getPort(), null);
+    }
+
+    /**
+     * Connects the server with TLS server authentication, sends server name in SNI extension.
+     */
+    static public Client connectWithSni(TrustManager[] tms, String serverName, Server server)
+            throws KeyManagementException, UnknownHostException, NoSuchAlgorithmException, IOException {
+        return new Client(null, tms).connect(server.getHost(), server.getPort(), serverName);
+    }
+
+    /**
+     * Connects the server with TLS server and client authentication, sends server name in SNI extension.
+     */
+    static public Client connectWithSni(KeyManager[] kms, TrustManager[] tms, String serverName, Server server)
+            throws KeyManagementException, UnknownHostException, NoSuchAlgorithmException, IOException {
+        return new Client(kms, tms).connect(server.getHost(), server.getPort(), serverName);
     }
 }

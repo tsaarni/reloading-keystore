@@ -98,7 +98,7 @@ public class TestReloadingKeyStore {
     }
 
     @Test
-    void testPemReload(@TempDir Path tempDir) throws Exception {
+    void testPemHotReload(@TempDir Path tempDir) throws Exception {
         Path certPath = tempDir.resolve("server.pem");
         Path keyPath = tempDir.resolve("server-key.pem");
 
@@ -138,7 +138,7 @@ public class TestReloadingKeyStore {
     }
 
     @Test
-    void testKeyStoreReload(@TempDir Path tempDir) throws Exception {
+    void testKeyStoreHotReload(@TempDir Path tempDir) throws Exception {
         Path ksPath = tempDir.resolve("keystore.p12");
         Instant before = Instant.parse("2022-01-01T13:00:00Z");
         Instant after = Instant.parse("2022-01-01T13:00:01Z"); // Cache TTL expires 1 second later.
@@ -185,7 +185,7 @@ public class TestReloadingKeyStore {
     }
 
     @Test
-    void testKeyStoreWithSortedAliases(@TempDir Path tempDir) throws Exception {
+    void testKeyStoreSortedAliases(@TempDir Path tempDir) throws Exception {
         Credential cred = new Credential().subject("CN=joe");
 
         KeyStore ks = KeyStore.getInstance("PKCS12");

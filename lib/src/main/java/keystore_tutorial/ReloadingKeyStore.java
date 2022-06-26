@@ -99,7 +99,7 @@ public class ReloadingKeyStore extends KeyStore {
             }
 
             return new Builder(new ReloadingKeyStore(spi, null, "ReloadingKeyStore"),
-                    null,
+                    ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD,
                     null, null);
         }
 
@@ -120,7 +120,7 @@ public class ReloadingKeyStore extends KeyStore {
             ReloadingPemFileKeyStoreSpi spi = new ReloadingPemFileKeyStoreSpi();
             spi.setCertificateEntry(cert);
             return new Builder(new ReloadingKeyStore(spi, null, "ReloadingKeyStore"),
-                    null,
+                    ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD,
                     null, null);
         }
 
