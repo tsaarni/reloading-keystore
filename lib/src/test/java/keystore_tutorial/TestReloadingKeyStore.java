@@ -211,4 +211,9 @@ public class TestReloadingKeyStore {
     void testKeyStoreWithEncryptedEntry() {
         // TODO
     }
+
+    @Test
+    void testFailWhenPemFileInvalid() {
+        // TODO
+    }
 }
