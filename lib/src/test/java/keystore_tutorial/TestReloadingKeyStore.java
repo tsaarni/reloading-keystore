@@ -10,9 +10,14 @@ import fi.protonode.certy.Credential;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mockStatic;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.spec.InvalidKeySpecException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -213,7 +218,18 @@ public class TestReloadingKeyStore {
     }
 
     @Test
-    void testFailWhenPemFileInvalid() {
-        // TODO
+    void testFailWhenInvalidPemFile(@TempDir Path tempDir) throws IOException, KeyStoreException,
+            InvalidKeySpecException, NoSuchAlgorithmException, CertificateException {
+        Path p = tempDir.resolve("invalid.pem");
+        Files.write(p, "this\nis\nnot\nPEM\n".getBytes());
+        assertThrows(CertificateException.class, () -> ReloadingKeyStore.Builder.fromPem(p));
+
+        // Try reading certificate from key and key from certificate PEM.
+        Path certPath = tempDir.resolve("cert.pem");
+        Path keyPath = tempDir.resolve("key.pem");
+        new Credential().subject("CN=joe").writeCertificateAsPem(certPath).writePrivateKeyAsPem(keyPath);
+        ReloadingKeyStore.Builder.fromPem(keyPath, certPath);
+        // TODO: hangs in loading private key
+      // assertThrows(CertificateException.class, () -> ReloadingKeyStore.Builder.fromPem(keyPath, certPath));
     }
 }

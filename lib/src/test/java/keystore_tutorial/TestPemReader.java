@@ -6,10 +6,13 @@ import fi.protonode.certy.Credential;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
+
 public class TestPemReader {
 
     @Test
-    void testPemReader() throws Exception {
+    void testPemBundle() throws Exception {
+        // Create bundle with certificate and private key.
         Credential cred = new Credential().subject("CN=joe");
         String pemBundle = cred.getCertificateAsPem() + cred.getPrivateKeyAsPem();
 
@@ -21,6 +24,14 @@ public class TestPemReader {
         assertEquals("PRIVATE KEY", block.getType());
 
         block = reader.decode();
+        assertNull(block);
+    }
+
+    @Test
+    void testFailWhenInvalidPemFile() throws IOException {
+        String invalid = "this\nis\nnot\nPEM\n";
+        PemReader reader = new PemReader(invalid.getBytes());
+        PemReader.Block block = reader.decode();
         assertNull(block);
     }
 }

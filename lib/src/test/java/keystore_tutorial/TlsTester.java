@@ -15,12 +15,8 @@
  */
 package keystore_tutorial;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
 import java.io.Closeable;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -66,8 +62,7 @@ public class TlsTester {
     }
 
     /**
-     * Server that accepts client connections, executes TLS handshake and then
-     * closes the client connection.
+     * Server that accepts client connections, executes TLS handshake and then closes the client connection.
      */
     static public class Server implements Runnable, Closeable {
 
@@ -75,8 +70,7 @@ public class TlsTester {
         private final int port = 18040;
         private ExecutorService executor = Executors.newSingleThreadExecutor();
         private final SSLContext ctx = SSLContext.getInstance("TLS");
-        private SSLServerSocket sock;
-        private String[] protocols = new String[] { "TLSv1.2" }; // Easier to troubleshoot with Wireshark than TLSv1.3.
+        private SSLServerSocket socket;
         private boolean clientAuthentication;
 
         CompletableFuture<Certificate[]> clientCertificates;
@@ -87,19 +81,13 @@ public class TlsTester {
             // Initialize server socket.
             ctx.init(kms, tms, null);
             SSLServerSocketFactory ssf = ctx.getServerSocketFactory();
-            sock = (SSLServerSocket) ssf.createServerSocket(port, 1, InetAddress.getByName(host));
-            sock.setEnabledProtocols(protocols);
+            socket = (SSLServerSocket) ssf.createServerSocket(port, 1, InetAddress.getByName(host));
+
+            // TLSv1.3 is easier to troubleshoot with Wireshark (due to unencrypted handshake).
+            socket.setEnabledProtocols(new String[] { "TLSv1.2" });
 
             // Enable client authentication if TrustManager(s) are given.
-            if (tms == null) {
-                clientAuthentication = false;
-                sock.setWantClientAuth(false);
-                sock.setNeedClientAuth(false);
-            } else {
-                clientAuthentication = true;
-                sock.setWantClientAuth(true);
-                sock.setNeedClientAuth(true);
-            }
+            clientAuth(tms != null);
 
             // Future for passing client credentials back to main thread.
             clientCertificates = new CompletableFuture<>();
@@ -108,10 +96,27 @@ public class TlsTester {
             executor.execute(this);
         }
 
+        public Server protocols(String[] protocols) {
+            socket.setEnabledProtocols(protocols);
+            return this;
+        }
+
+        public Server ciphers(String[] suites) {
+            socket.setEnabledCipherSuites(suites);
+            return this;
+        }
+
+        public Server clientAuth(boolean enable) {
+            socket.setWantClientAuth(enable);
+            socket.setNeedClientAuth(enable);
+            clientAuthentication = enable;
+            return this;
+        }
+
         @Override
         public void close() {
             try {
-                sock.close();
+                socket.close();
                 executor.shutdown();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -120,17 +125,12 @@ public class TlsTester {
 
         @Override
         public void run() {
-
             // Wait for client to connect.
-            try (SSLSocket client = (SSLSocket) sock.accept()) {
-                InputStream is = new BufferedInputStream(client.getInputStream());
-                OutputStream os = new BufferedOutputStream(client.getOutputStream());
-
+            try (SSLSocket client = (SSLSocket) socket.accept()) {
                 // Execute TLS handshake.
                 client.startHandshake();
 
-                // Pass the client credentials to main thread if client authentication was
-                // enabled.
+                // Pass the client credentials to main thread if client authentication was enabled.
                 if (clientAuthentication) {
                     SSLSession sess = client.getSession();
                     clientCertificates.complete(sess.getPeerCertificates());
@@ -140,18 +140,17 @@ public class TlsTester {
             }
         }
 
-        int getPort() {
+        public int getPort() {
             return port;
         }
 
-        String getHost() {
+        public String getHost() {
             return host;
         }
 
         /**
          * Returns the client certificates that were used to connect the server.
-         * If client authentication was not used, times out in two seconds and raises an
-         * exception.
+         * If client authentication was not used, times out in two seconds and raises an exception.
          * Can be called in main thread.
          */
         public Certificate[] getClientCertificates()
@@ -181,8 +180,7 @@ public class TlsTester {
     }
 
     /**
-     * Client that establishes connection, executes TLS handshake and then closes
-     * the connection.
+     * Client that establishes connection, executes TLS handshake and then closes the connection.
      */
     static public class Client {
 
@@ -218,22 +216,21 @@ public class TlsTester {
             return connect(server.getHost(), server.getPort());
         }
 
-        public Client connect(String host, int port) throws IOException  {
+        public Client connect(String host, int port) throws IOException {
             socket.connect(new InetSocketAddress(host, port), 2000 /* msec */);
             socket.startHandshake();
             return this;
         }
 
-        public  Certificate[] getServerCertificate() throws SSLPeerUnverifiedException {
+        public Certificate[] getServerCertificate() throws SSLPeerUnverifiedException {
             return socket.getSession().getPeerCertificates();
         }
     }
 
     /**
-     * Creates client that connects to the server using TLS server authentication
-     * only.
+     * Creates client that connects to the server using TLS server authentication only.
      */
-    public static  Client connect(Server server, TrustManager[] tms)
+    public static Client connect(Server server, TrustManager[] tms)
             throws UnknownHostException, IOException, KeyManagementException, NoSuchAlgorithmException {
         return new Client(null, tms).connect(server);
     }
@@ -255,7 +252,6 @@ public class TlsTester {
         return new Client(null, tms).serverName(serverName).connect(server);
     }
 
-
     public static KeyManagerFactory createKeyManagerFactory(Path tempDir, Credential... credentials)
             throws KeyStoreException, CertificateException, NoSuchAlgorithmException, UnrecoverableKeyException,
             IOException, InvalidAlgorithmParameterException, NoSuchProviderException {
@@ -274,8 +270,7 @@ public class TlsTester {
         Path ksPath = tempDir.resolve(ks.toString());
         ks.store(Files.newOutputStream(ksPath), "".toCharArray());
 
-        // Load the keystore from disk with ReloadingKeyStore and construct
-        // KeyManagerFactory for it.
+        // Load the keystore from disk with ReloadingKeyStore and construct KeyManagerFactory for it.
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("NewSunX509");
         kmf.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
                 "", null, null)));
@@ -300,8 +295,7 @@ public class TlsTester {
         Path ksPath = tempDir.resolve(ks.toString());
         ks.store(Files.newOutputStream(ksPath), "".toCharArray());
 
-        // Load the keystore from disk with ReloadingKeyStore and construct
-        // TrustManagerFactory for it.
+        // Load the keystore from disk with ReloadingKeyStore and construct TrustManagerFactory for it.
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
         tmf.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
                 "", null, null).getKeyStore());
