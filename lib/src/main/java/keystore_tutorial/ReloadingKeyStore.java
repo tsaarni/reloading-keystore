@@ -35,7 +35,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * KeyStore that can reload itself when the backing files are modified.
+ * KeyStore that can reload the wrapped delegate {@code KeyStore} when the backing files have been changed on disk.
  */
 public class ReloadingKeyStore extends KeyStore {
 
@@ -45,13 +45,12 @@ public class ReloadingKeyStore extends KeyStore {
             throws NoSuchAlgorithmException, CertificateException, IOException {
         super(keyStoreSpi, provider, type);
 
-        // Calling load(), even with null arguments, will initialize the KeyStore to
-        // expected state.
+        // Calling load(), even with null arguments, will initialize the KeyStore to expected state.
         load(null, null);
     }
 
     /**
-     * KeyStore.Builder implementation for reloading keystores.
+     * KeyStore.Builder creates reloading keystores for various types of credential files.
      */
     public static class Builder extends KeyStore.Builder {
 
@@ -75,38 +74,50 @@ public class ReloadingKeyStore extends KeyStore {
             }
         }
 
+        /**
+         * Returns the KeyStore described by this object.
+         *
+         * @return Keystore described by this object.
+         */
         @Override
         public KeyStore getKeyStore() {
             return keyStore;
         }
 
+        /**
+         * Returns the ProtectionParameters (password) that should be used to obtain the Entry with the given alias.
+         *
+         * @param alias Alias for key entry.
+         * @return ProtectionParameters (password) for the key entry.
+         */
         @Override
-        public ProtectionParameter getProtectionParameter(String newSunAlias) {
-            log.debug("getProtectionParameter({})", newSunAlias);
+        public ProtectionParameter getProtectionParameter(String alias) {
+            log.debug("getProtectionParameter({})", alias);
 
             // Use keystore password, if individual alias passwords are not defined.
             if (aliasProtection == null) {
                 return protection;
             }
 
+            // TODO: JDK17 does not use prefix anymore. In that case, no parsing is needed.
+
             // Parse plain alias from NewSunS509 KeyManager prefixed alias.
             // https://github.com/openjdk/jdk/blob/6e55a72f25f7273e3a8a19e0b9a97669b84808e9/src/java.base/share/classes/sun/security/ssl/X509KeyManagerImpl.java#L237-L265
-            Objects.requireNonNull(newSunAlias);
-            int firstDot = newSunAlias.indexOf('.');
-            int secondDot = newSunAlias.indexOf('.', firstDot + 1);
+            Objects.requireNonNull(alias);
+            int firstDot = alias.indexOf('.');
+            int secondDot = alias.indexOf('.', firstDot + 1);
             if ((firstDot == -1) || (secondDot == firstDot)) {
-                // TODO: JDK17 does not use prefix anymore.
-                return aliasProtection.getOrDefault(newSunAlias, protection);
+                return aliasProtection.getOrDefault(alias, protection);
             }
-            String requestedAlias = newSunAlias.substring(secondDot + 1);
+            String requestedAlias = alias.substring(secondDot + 1);
             return aliasProtection.getOrDefault(requestedAlias, protection);
         }
 
         /**
-         * Creates KeyStore builder from PKCS#12 or JKS file.
+         * Creates KeyStore builder for given PKCS#12 or JKS file.
          *
-         * @param type KeyStore type such PKCS12 or JKS.
-         * @param provider KeyStore provider.
+         * @param type KeyStore type such as {@code "PKCS12"} or {@code "JKS"}.
+         * @param provider KeyStore provider such as {@code "SunJSSE"}.
          * @param path Path to the keystore file.
          * @param password Password used to decrypt the KeyStore.
          * @return The KeyStore builder.
@@ -119,10 +130,10 @@ public class ReloadingKeyStore extends KeyStore {
         }
 
         /**
-         * Creates KeyStore builder from PKCS#12 or JKS file.
+         * Creates KeyStore builder for given PKCS#12 or JKS file.
          *
-         * @param type KeyStore type such PKCS12 or JKS.
-         * @param provider KeyStore provider.
+         * @param type KeyStore type such as {@code "PKCS12"} or {@code "JKS"}.
+         * @param provider KeyStore provider such as {@code "SunJSSE"}.
          * @param path Path to the keystore file.
          * @param password Password used to decrypt the KeyStore.
          * @param aliasPasswords Passwords used to decrypt keystore entries. Map of: alias (key), password (value).
@@ -137,7 +148,7 @@ public class ReloadingKeyStore extends KeyStore {
         }
 
         /**
-         * Creates KeyStore builder from list of certificate and key paths.
+         * Creates KeyStore builder for given certificate and private key files.
          * Certificate in position {@code certs[n]} must match the private key in position {@code keys[n]}.
          *
          * @param certs List of paths to certificates.
@@ -169,7 +180,7 @@ public class ReloadingKeyStore extends KeyStore {
         }
 
         /**
-         * Creates KeyStore builder from certificate and key path.
+         * Creates KeyStore builder for given certificate and private key file.
          *
          * @param cert Path to certificate.
          * @param key Path to private key.
@@ -186,7 +197,7 @@ public class ReloadingKeyStore extends KeyStore {
         }
 
         /**
-         * Creates KeyStore builder from certificate path(s).
+         * Creates KeyStore builder for certificate path(s).
          *
          * @param cert Path to certificate.
          * @return The KeyStore builder.

@@ -55,7 +55,7 @@ public class ReloadingKeyStoreFileSpi extends DelegatingKeyStoreSpi {
   }
 
   /**
-   * Reload keystore if it was modified on disk since it was last loaded.
+   * Reload keystore if it has been modified on disk since is was last loaded.
    * @throws IOException
    * @throws NoSuchProviderException
    * @throws KeyStoreException

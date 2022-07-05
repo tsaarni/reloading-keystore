@@ -45,7 +45,7 @@ public class PemCredentialFactory {
     }
 
     /**
-     * Reads PEM encoded certificate or certificate bundle from file and constructs an array of {@code Certificate}.
+     * Reads PEM encoded certificate or certificate bundle from given file and constructs an array of {@code Certificates}.
      *
      * @param path Path to PEM file.
      * @return Array of one or more certificates.
@@ -63,7 +63,7 @@ public class PemCredentialFactory {
     }
 
     /**
-     * Reads PEM encoded private key (PKCS#8) from file and construct {@code PrivateKey}.
+     * Reads PEM encoded private key (PKCS#8) from given file and construct {@code PrivateKey}.
      *
      * @param path Path to PEM file.
      * @return Private key.
@@ -107,7 +107,7 @@ public class PemCredentialFactory {
     }
 
     /**
-     * Attempts to decode PKCS8 key as a key of given {@code algo}.
+     * Attempts to decode PKCS8 key using given algorithm.
      *
      * @param algo Key algorithm name.
      * @param spec Private key spec,

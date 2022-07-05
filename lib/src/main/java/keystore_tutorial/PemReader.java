@@ -38,7 +38,7 @@ public class PemReader {
     BufferedReader reader;
 
     /**
-     * Constructs new reader to parse PEM block(s) from a file.
+     * Constructs new reader that decodes PEM block(s) from given file.
      *
      * @param path Path to PEM file.
      */
@@ -47,7 +47,7 @@ public class PemReader {
     }
 
     /**
-     * Constructs new reader to parse PEM block(s) from byte array.
+     * Constructs new reader to decode PEM block(s) from given byte array.
      *
      * @param data Buffer containing PEM block(s).
      */
@@ -58,9 +58,9 @@ public class PemReader {
     }
 
     /**
-     * Decodes next PEM block.
+     * Decodes next PEM block in the bundle.
      *
-     * @return Decoded data or null if no more PEM blocks can be decoded.
+     * @return Block object that holds the decoded data or null if no more PEM blocks can be decoded.
      */
     public Block decode() throws IOException {
         String line;
@@ -84,7 +84,7 @@ public class PemReader {
     }
 
     /**
-     * Parse block type from PEM header.
+     * Returns block type from PEM header.
      * For example if header is {@code -----BEGIN PRIVATE KEY-----} then return {@code "PRIVATE KEY"}.
      */
     private String parseType(String line) {
@@ -107,7 +107,7 @@ public class PemReader {
         }
 
         /**
-         * Get type from PEM header.
+         * Get type of the PEM block.
          * For example "CERTIFICATE" or "PRIVATE KEY"
          */
         public String getType() {
@@ -115,7 +115,7 @@ public class PemReader {
         }
 
         /**
-         * Get bytes from the decoded PEM block.
+         * Get bytes of the decoded PEM block.
          */
         public byte[] getBytes() {
             return bytes;

@@ -36,17 +36,23 @@ import org.slf4j.LoggerFactory;
  */
 public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
 
+    // Empty password used for the in-memory KeyStore that holds the credentials loaded from PEM files.
     public static final char[] IN_MEMORY_KEYSTORE_PASSWORD = "".toCharArray();
 
     private static final Logger log = LoggerFactory.getLogger(ReloadingPemFileKeyStoreSpi.class);
+
+    // List of objects holding the path of certificates and private keys and their last known modification timestamps.
     private final List<KeyFileEntry> keyFileEntries = new ArrayList<>();
+
+    // List of objects holding the path of the certificates and their last known modification timestamps.
     private final List<CertificateFileEntry> certificateFileEntries = new ArrayList<>();
 
     public ReloadingPemFileKeyStoreSpi() {
+        // Empty.
     }
 
     /**
-     * Adds new key entry (certificate and private key).
+     * Adds new key entry (certificate and private key) and recreates the {@code KeyStore}.
      *
      * @param cert Path to certificate file in PEM format.
      * @param key Path to private key file in PEM format.
@@ -62,19 +68,22 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
     }
 
     /**
-     * Adds new certificate entry.
+     * Adds new certificate entry and recreates the {@code KeyStore}.
      *
      * @param cert Path to certificate file in PEM format.
+     * @throws IOException
+     * @throws CertificateException
+     * @throws NoSuchAlgorithmException
+     * @throws InvalidKeySpecException
+     * @throws KeyStoreException
      */
-    public void addCertificateEntry(Path cert) throws KeyStoreException, InvalidKeySpecException,
-            NoSuchAlgorithmException, CertificateException, IOException {
+    public void addCertificateEntry(Path cert) throws IOException, KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException, CertificateException {
         certificateFileEntries.add(new CertificateFileEntry(cert));
         setKeyStoreDelegate(createKeyStore());
     }
 
     /**
-     * Reload certificate and key PEM files if they were modified on disk since they
-     * were last loaded.
+     * Reload certificate and key files if they have been modified on disk since they were last loaded.
      * @throws IOException
      * @throws CertificateException
      * @throws NoSuchAlgorithmException
@@ -110,7 +119,7 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
     }
 
     /**
-     * Create KeyStore that contains the certificates and keys that were passed by paths.
+     * Create KeyStore containing given certificates and private keys.
      * @throws KeyStoreException
      * @throws IOException
      * @throws CertificateException
@@ -147,7 +156,7 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
     }
 
     /**
-     * Holds the path of the certificate and key files and the modification timestamps when last loaded.
+     * Holds the path of certificate and private key and their last known modification timestamp.
      */
     class KeyFileEntry {
         private final Path certPath;
@@ -169,7 +178,7 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
     }
 
     /**
-     * Holds the path of the certificate file and the modification timestamps when last loaded.
+     * Holds the path of a certificate and its last known modification timestamp.
      */
     class CertificateFileEntry {
         private final Path certPath;

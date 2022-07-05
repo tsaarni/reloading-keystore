@@ -184,7 +184,7 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testFallbackCertificateSelection(@TempDir Path tempDir) throws Exception {
+    void testFallbackServerCertificateSelection(@TempDir Path tempDir) throws Exception {
 
         // Create CA.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
@@ -413,6 +413,12 @@ public class TestReloadingKeyStoreWithTls {
 
     @Test
     void testFailedClientAuthentication() {
+        // TODO
+    }
+
+
+    @Test
+    void testFallbackClientCertificateSelection(@TempDir Path tempDir) throws Exception {
         // TODO
     }
 }

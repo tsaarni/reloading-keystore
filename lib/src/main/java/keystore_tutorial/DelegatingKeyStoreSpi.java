@@ -40,12 +40,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@code KeyStoreSpi} that delegates calls to an instance of {@code KeyStore}.
- * The delegate keystore can be replaced on demand when the underlying certificate(s) and key(s) require that.
- *
- * The class returns aliases in sorted order instead of the order that underlying KeyStore would return them.
- * This allows user to have expected fallback behavior when KeyManager selects server certificate in cases
- * when SNI is not set or unknown SNI servername is requested
+ * {@code KeyStoreSpi} that delegates calls to another instance of {@code KeyStore}.
+ * The delegate keystore can be replaced on demand when the underlying certificate(s) and key(s) change.
  */
 public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
@@ -144,9 +140,10 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
     }
 
     /**
-     * Return aliases in sorted order instead of the order that underlying KeyStore would return them.
-     * This allows user to have expected fallback behavior when KeyManager selects server certificate in cases
-     * when SNI is not set or unknown SNI servername is requested
+     * Return aliases in sorted order.
+     * This is different than the order used by underlying KeyStore.
+     * Sorting aliases enables user to have expected fallback behavior when KeyManager selects server certificate.
+     * This can be useful in cases when client does not set TLS SNI or unknown SNI servername is requested.
      */
     @Override
     public Enumeration<String> engineAliases() {
