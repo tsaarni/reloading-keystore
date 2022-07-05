@@ -1,3 +1,18 @@
+/*
+ * Copyright Tero Saarni
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package keystore_tutorial;
 
 import java.io.IOException;
@@ -24,6 +39,14 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Implements {@code KeyStoreSpi} by delegating SPI calls to an instance of {@code KeyStore}.
+ * The delegate keystore can be replaced on demand when the underlying certificate(s) and key(s) require that.
+ *
+ * The class returns aliases in sorted order instead of the order that underlying KeyStore would return them.
+ * This allows user to have expected fallback behavior when KeyManager selects server certificate in cases
+ * when SNI is not set or unknown SNI servername is requested
+ */
 public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     private static final Logger log = LoggerFactory.getLogger(DelegatingKeyStoreSpi.class);
@@ -62,6 +85,11 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         }
     }
 
+    /**
+     * Replace the {@code KeyStore} delegate,
+     *
+     * @param delegate KeyStore instance that becomes the delegate.
+     */
     void setKeyStoreDelegate(KeyStore delegate) {
         log.debug("New KeyStore delegate set");
         this.delegate.set(new Delegate(delegate));
@@ -115,13 +143,15 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         }
     }
 
+    /**
+     * Return aliases in sorted order instead of the order that underlying KeyStore would return them.
+     * This allows user to have expected fallback behavior when KeyManager selects server certificate in cases
+     * when SNI is not set or unknown SNI servername is requested
+     */
     @Override
     public Enumeration<String> engineAliases() {
         log.debug("engineAliases()");
         refreshCachedKeyStore();
-        // Return aliases in sorted order instead of the order that underlying KeyStore would return them.
-        // This allows user to have expected fallback behavior when KeyManager selects server certificate in cases
-        // when SNI is not set or unknown SNI servername is requested
         return Collections.enumeration(new ArrayList<>(delegate.get().sortedAliases));
     }
 
@@ -238,4 +268,5 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
             }
         }
     }
+
 }

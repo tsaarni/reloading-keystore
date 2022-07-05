@@ -1,3 +1,18 @@
+/*
+ * Copyright Tero Saarni
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package keystore_tutorial;
 
 import org.junit.jupiter.api.Test;
@@ -64,7 +79,7 @@ public class TestReloadingKeyStore {
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
         KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("JKS", "SUN", ksPath,
-                "secret", null, null);
+                "secret");
 
         KeyStore reloadingKs = builder.getKeyStore();
         assertNotNull(reloadingKs);
@@ -89,8 +104,7 @@ public class TestReloadingKeyStore {
         Path ksPath = tempDir.resolve("keystore.p12");
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
-        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
-                "secret", null, null);
+        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath, "secret");
 
         KeyStore reloadingKs = builder.getKeyStore();
         assertNotNull(reloadingKs);
@@ -161,7 +175,7 @@ public class TestReloadingKeyStore {
 
             // Load initial keystore from the disk.
             KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
-                    "secret", null, null);
+                    "secret");
             KeyStore reloadingKs = builder.getKeyStore();
             assertNotNull(reloadingKs);
 
@@ -203,8 +217,7 @@ public class TestReloadingKeyStore {
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
         KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
-                "secret", null, null);
-
+                "secret");
         KeyStore reloadingKs = builder.getKeyStore();
         assertNotNull(ks);
 
@@ -213,13 +226,9 @@ public class TestReloadingKeyStore {
     }
 
     @Test
-    void testKeyStoreWithEncryptedEntry() {
-        // TODO
-    }
-
-    @Test
     void testFailWhenInvalidPemFile(@TempDir Path tempDir) throws IOException, KeyStoreException,
             InvalidKeySpecException, NoSuchAlgorithmException, CertificateException {
+        // Try to load file that is not PEM at all.
         Path p = tempDir.resolve("invalid.pem");
         Files.write(p, "this\nis\nnot\nPEM\n".getBytes());
         assertThrows(CertificateException.class, () -> ReloadingKeyStore.Builder.fromPem(p));
@@ -228,8 +237,6 @@ public class TestReloadingKeyStore {
         Path certPath = tempDir.resolve("cert.pem");
         Path keyPath = tempDir.resolve("key.pem");
         new Credential().subject("CN=joe").writeCertificateAsPem(certPath).writePrivateKeyAsPem(keyPath);
-        ReloadingKeyStore.Builder.fromPem(keyPath, certPath);
-        // TODO: hangs in loading private key
-      // assertThrows(CertificateException.class, () -> ReloadingKeyStore.Builder.fromPem(keyPath, certPath));
+        assertThrows(IllegalArgumentException.class, () -> ReloadingKeyStore.Builder.fromPem(keyPath, certPath));
     }
 }

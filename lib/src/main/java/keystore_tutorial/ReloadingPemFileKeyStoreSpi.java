@@ -1,3 +1,18 @@
+/*
+ * Copyright Tero Saarni
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package keystore_tutorial;
 
 import java.io.IOException;
@@ -16,6 +31,10 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Implements {@code KeyStoreSpi} that reads certificates and private keys from PEM files instead of keystore files.
+ * Reloads the files when they change on disk to support certificate hot-reload (also known as hitless reload).
+ */
 public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
 
     public static final char[] IN_MEMORY_KEYSTORE_PASSWORD = "".toCharArray();
@@ -33,13 +52,24 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
     public ReloadingPemFileKeyStoreSpi() {
     }
 
-    public void setKeyEntry(Path cert, Path key) throws KeyStoreException, InvalidKeySpecException,
+    /**
+     * Adds new key entry (certificate and private key).
+     *
+     * @param cert Path to certificate file in PEM format.
+     * @param key Path to private key file in PEM format.
+     */
+    public void addKeyEntry(Path cert, Path key) throws KeyStoreException, InvalidKeySpecException,
             NoSuchAlgorithmException, CertificateException, IOException {
         keyFileEntries.add(new KeyFileEntry(cert, key));
         setKeyStoreDelegate(createKeyStore());
     }
 
-    public void setCertificateEntry(Path cert) throws KeyStoreException, InvalidKeySpecException,
+    /**
+     * Adds new certificate entry.
+     *
+     * @param cert Path to certificate file in PEM format.
+     */
+    public void addCertificateEntry(Path cert) throws KeyStoreException, InvalidKeySpecException,
             NoSuchAlgorithmException, CertificateException, IOException {
         certificateFileEntries.add(new CertificateFileEntry(cert));
         setKeyStoreDelegate(createKeyStore());
@@ -157,4 +187,5 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
             return certLastModified.compareTo(Files.getLastModifiedTime(certPath)) < 0;
         }
     }
+
 }

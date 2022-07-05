@@ -1,20 +1,28 @@
+/*
+ * Copyright Tero Saarni
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package keystore_tutorial;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.KeyManagementException;
 import java.security.KeyStore;
-import java.security.KeyStoreException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
-import java.security.cert.CertificateException;
-import java.util.concurrent.ExecutionException;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.KeyStoreBuilderParameters;
@@ -54,12 +62,12 @@ public class TestReloadingKeyStoreWithTls {
         // Create KeyManager for server.
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
         kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
-                "secret", null, null)));
+                "secret")));
 
         // Create TrustManager for client.
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
         tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", tsPath,
-                "secret", null, null).getKeyStore());
+                "secret").getKeyStore());
 
         // Create TLS connection.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
@@ -148,9 +156,7 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testMultipleServerCertificateWithSniSelection(@TempDir Path tempDir)
-            throws UnrecoverableKeyException, KeyStoreException, CertificateException, NoSuchAlgorithmException,
-            InvalidAlgorithmParameterException, NoSuchProviderException, IOException, KeyManagementException {
+    void testMultipleServerCertificateWithSniSelection(@TempDir Path tempDir) throws Exception {
 
         // Create CA and server certificates for a server that supports several virtualhosts.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
@@ -178,9 +184,7 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testFallbackCertificateSelection(@TempDir Path tempDir)
-            throws UnrecoverableKeyException, KeyStoreException, CertificateException, NoSuchAlgorithmException,
-            InvalidAlgorithmParameterException, NoSuchProviderException, IOException, KeyManagementException {
+    void testFallbackCertificateSelection(@TempDir Path tempDir) throws Exception {
 
         // Create CA.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
@@ -218,9 +222,7 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testMultipleServerCertificateWithKeyTypeSelection(@TempDir Path tempDir)
-            throws UnrecoverableKeyException, KeyStoreException, CertificateException, NoSuchAlgorithmException,
-            InvalidAlgorithmParameterException, NoSuchProviderException, IOException, KeyManagementException {
+    void testMultipleServerCertificateWithKeyTypeSelection(@TempDir Path tempDir) throws Exception {
 
         // Create CA and server certificates: one with RSA and one with EC key types.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
@@ -252,9 +254,7 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testMultipleClientCertificatesWithKeyTypeSelection(@TempDir Path tempDir)
-            throws UnrecoverableKeyException, KeyStoreException, CertificateException, NoSuchAlgorithmException,
-            InvalidAlgorithmParameterException, NoSuchProviderException, IOException, KeyManagementException, InterruptedException, ExecutionException {
+    void testMultipleClientCertificatesWithKeyTypeSelection(@TempDir Path tempDir) throws Exception {
 
         // Create CA and server certificates: one with RSA and one with EC key types.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
@@ -280,7 +280,7 @@ public class TestReloadingKeyStoreWithTls {
                     .getServerCertificate();
             assertArrayEquals(serverRsaCreds.getCertificates(), gotServerCerts);
             // TODO: EC key gets selected
-     //       assertArrayEquals(clientRsaCreds.getCertificates(), server.getClientCertificates());
+            //       assertArrayEquals(clientRsaCreds.getCertificates(), server.getClientCertificates());
         }
 
         // Create server that only offers EC cipher and forces client to select EC certificate.
@@ -296,10 +296,7 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testMultipleClientCertificatesWithAuthoritySelection(@TempDir Path tempDir)
-            throws UnrecoverableKeyException, KeyStoreException, CertificateException, NoSuchAlgorithmException,
-            InvalidAlgorithmParameterException, NoSuchProviderException, IOException, KeyManagementException,
-            InterruptedException, ExecutionException {
+    void testMultipleClientCertificatesWithAuthoritySelection(@TempDir Path tempDir) throws Exception {
 
         // Create server CA and server certificate.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
@@ -339,6 +336,59 @@ public class TestReloadingKeyStoreWithTls {
             assertArrayEquals(serverCreds.getCertificates(), gotServerCerts);
             assertArrayEquals(client2Creds.getCertificates(), gotClientCerts);
         }
+    }
+
+    @Test
+    void testKeyStoreEncryptedKeysWithDifferentPasswords(@TempDir Path tempDir) throws Exception {
+        Path ksPath = tempDir.resolve("server.p12");
+        Path tsPath = tempDir.resolve("trusted.p12");
+
+        // Create CA and server certificates for a server that supports several virtualhosts.
+        Credential serverCaCreds = new Credential().subject("CN=server-ca");
+        Credential serverFooCreds = new Credential().subject("CN=foo.com").issuer(serverCaCreds);
+        Credential serverBarCreds = new Credential().subject("CN=bar.com").issuer(serverCaCreds);
+
+        // Create keystore files.
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+        ks.setKeyEntry("foo", serverFooCreds.getPrivateKey(), "password foo".toCharArray(),
+                serverFooCreds.getCertificates());
+        ks.setKeyEntry("bar", serverBarCreds.getPrivateKey(), "password bar".toCharArray(),
+                serverBarCreds.getCertificates());
+        ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
+
+        KeyStore ts = KeyStore.getInstance("PKCS12");
+        ts.load(null, null);
+        ts.setCertificateEntry("trusted", serverCaCreds.getCertificate());
+        ts.store(Files.newOutputStream(tsPath), "secret".toCharArray());
+
+        // Create KeyManager for server.
+        KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
+        Map<String, char[]> aliasPasswords = new HashMap<>();
+        aliasPasswords.put("foo", "password foo".toCharArray());
+        aliasPasswords.put("bar", "password bar".toCharArray());
+        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
+                "secret", aliasPasswords)));
+
+        // Create TrustManager for client.
+        TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
+        tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", tsPath,
+                "secret").getKeyStore());
+
+        // Create TLS connection with SNI servername: foo.com.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
+            Certificate[] gotServerCerts = TlsTester.connectWithSni(server, "foo.com", tmfClient.getTrustManagers())
+                    .getServerCertificate();
+            assertArrayEquals(serverFooCreds.getCertificates(), gotServerCerts);
+        }
+
+        // Create TLS connection with SNI servername: bar.com.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
+            Certificate[] gotServerCerts = TlsTester.connectWithSni(server, "bar.com", tmfClient.getTrustManagers())
+                    .getServerCertificate();
+            assertArrayEquals(serverBarCreds.getCertificates(), gotServerCerts);
+        }
+
     }
 
     @Test

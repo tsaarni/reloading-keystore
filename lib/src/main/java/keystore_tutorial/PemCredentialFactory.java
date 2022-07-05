@@ -1,3 +1,18 @@
+/*
+ * Copyright Tero Saarni
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package keystore_tutorial;
 
 import java.io.IOException;
@@ -18,6 +33,9 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Implements methods to read PEM files.
+ */
 public class PemCredentialFactory {
 
     private static final Logger log = LoggerFactory.getLogger(PemCredentialFactory.class);
@@ -26,10 +44,16 @@ public class PemCredentialFactory {
         // Empty.
     }
 
-    public static Certificate[] generateCertificates(Path p) throws IOException, CertificateException {
-        log.debug("Loading PEM certificate(s) from {}", p);
+    /**
+     * Reads PEM encoded certificate or certificate bundle from file and constructs an array of {@code Certificate}.
+     *
+     * @param path Path to PEM file.
+     * @return Array of one or more certificates.
+     */
+    public static Certificate[] generateCertificates(Path path) throws IOException, CertificateException {
+        log.debug("Loading PEM certificate(s) from {}", path);
         List<Certificate> certs = new ArrayList<>();
-        try (InputStream input = Files.newInputStream(p)) {
+        try (InputStream input = Files.newInputStream(path)) {
             CertificateFactory cf = CertificateFactory.getInstance("X.509");
             for (Certificate c : cf.generateCertificates(input)) {
                 certs.add(c);
@@ -38,13 +62,20 @@ public class PemCredentialFactory {
         return certs.toArray(new Certificate[0]);
     }
 
-    public static PrivateKey generatePrivateKey(Path p)
+    /**
+     * Reads PEM encoded private key (PKCS#8) from file and construct {@code PrivateKey}.
+     *
+     * @param path Path to PEM file.
+     * @return Private key.
+     */
+    public static PrivateKey generatePrivateKey(Path path)
             throws IOException, InvalidKeySpecException, NoSuchAlgorithmException {
-        log.debug("Loading PEM private key from {}", p);
+        log.debug("Loading PEM private key from {}", path);
 
         // Loop through PEM blocks until PRIVATE KEY type.
-        PemReader.Block block;
-        while ((block = new PemReader(p).decode()) != null) {
+        PemReader reader = new PemReader(path);
+        PemReader.Block block = null;
+        while ((block = reader.decode()) != null) {
             if (block.getType().equals("PRIVATE KEY")) {
                 break;
             }
@@ -52,7 +83,7 @@ public class PemCredentialFactory {
 
         // Throw exception if no PRIVATE KEY in PEM file.
         if (block == null) {
-            log.error("Cannot find PRIVATE KEY PEM block in {}", p);
+            log.error("Cannot find PRIVATE KEY PEM block in {}", path);
             throw new IllegalArgumentException("PEM file does not have private key");
         }
 
@@ -68,13 +99,20 @@ public class PemCredentialFactory {
 
         // Throw exception if parsing failed for all algorithms.
         if (pkey == null) {
-            log.error("Cannot decode private key {}", p);
+            log.error("Cannot decode private key {}", path);
             throw new InvalidKeySpecException("Invalid private key");
         }
 
         return pkey;
     }
 
+    /**
+     * Attempts to decode PKCS8 key as a key of given {@code algo}.
+     *
+     * @param algo Key algorithm name.
+     * @param spec Private key spec,
+     * @return PrivateKey pointer if successful, null if private key could not be parsed as given algorithm.
+     */
     private static PrivateKey tryDecodePkey(String algo, PKCS8EncodedKeySpec spec) throws NoSuchAlgorithmException {
         PrivateKey pkey = null;
         try {
