@@ -53,22 +53,22 @@ loadScripts(document, 'script');</script>
 <dl class="index">
 <dt><a href="keystore_tutorial/ReloadingPemFileKeyStoreSpi.html#addCertificateEntry(java.nio.file.Path)" class="member-name-link">addCertificateEntry(Path)</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingPemFileKeyStoreSpi.html" title="class in keystore_tutorial">ReloadingPemFileKeyStoreSpi</a></dt>
 <dd>
-<div class="block">Adds new certificate entry.</div>
+<div class="block">Adds new certificate entry and recreates the <code>KeyStore</code>.</div>
 </dd>
 <dt><a href="keystore_tutorial/ReloadingPemFileKeyStoreSpi.html#addKeyEntry(java.nio.file.Path,java.nio.file.Path)" class="member-name-link">addKeyEntry(Path, Path)</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingPemFileKeyStoreSpi.html" title="class in keystore_tutorial">ReloadingPemFileKeyStoreSpi</a></dt>
 <dd>
-<div class="block">Adds new key entry (certificate and private key).</div>
+<div class="block">Adds new key entry (certificate and private key) and recreates the <code>KeyStore</code>.</div>
 </dd>
 </dl>
 <h2 class="title" id="I:D">D</h2>
 <dl class="index">
 <dt><a href="keystore_tutorial/PemReader.html#decode()" class="member-name-link">decode()</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/PemReader.html" title="class in keystore_tutorial">PemReader</a></dt>
 <dd>
-<div class="block">Decodes next PEM block.</div>
+<div class="block">Decodes next PEM block in the bundle.</div>
 </dd>
 <dt><a href="keystore_tutorial/DelegatingKeyStoreSpi.html" class="type-name-link" title="class in keystore_tutorial">DelegatingKeyStoreSpi</a> - Class in <a href="keystore_tutorial/package-summary.html">keystore_tutorial</a></dt>
 <dd>
-<div class="block"><code>KeyStoreSpi</code> that delegates calls to an instance of <code>KeyStore</code>.</div>
+<div class="block"><code>KeyStoreSpi</code> that delegates calls to another instance of <code>KeyStore</code>.</div>
 </dd>
 <dt><a href="keystore_tutorial/DelegatingKeyStoreSpi.html#%3Cinit%3E()" class="member-name-link">DelegatingKeyStoreSpi()</a> - Constructor for class keystore_tutorial.<a href="keystore_tutorial/DelegatingKeyStoreSpi.html" title="class in keystore_tutorial">DelegatingKeyStoreSpi</a></dt>
 <dd>&nbsp;</dd>
@@ -77,7 +77,7 @@ loadScripts(document, 'script');</script>
 <dl class="index">
 <dt><a href="keystore_tutorial/DelegatingKeyStoreSpi.html#engineAliases()" class="member-name-link">engineAliases()</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/DelegatingKeyStoreSpi.html" title="class in keystore_tutorial">DelegatingKeyStoreSpi</a></dt>
 <dd>
-<div class="block">Return aliases in sorted order instead of the order that underlying KeyStore would return them.</div>
+<div class="block">Return aliases in sorted order.</div>
 </dd>
 <dt><a href="keystore_tutorial/DelegatingKeyStoreSpi.html#engineContainsAlias(java.lang.String)" class="member-name-link">engineContainsAlias(String)</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/DelegatingKeyStoreSpi.html" title="class in keystore_tutorial">DelegatingKeyStoreSpi</a></dt>
 <dd>&nbsp;</dd>
@@ -114,46 +114,50 @@ loadScripts(document, 'script');</script>
 <dl class="index">
 <dt><a href="keystore_tutorial/ReloadingKeyStore.Builder.html#fromKeyStoreFile(java.lang.String,java.lang.String,java.nio.file.Path,java.lang.String)" class="member-name-link">fromKeyStoreFile(String, String, Path, String)</a> - Static method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></dt>
 <dd>
-<div class="block">Creates KeyStore builder from PKCS#12 or JKS file.</div>
+<div class="block">Creates KeyStore builder for given PKCS#12 or JKS file.</div>
 </dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStore.Builder.html#fromKeyStoreFile(java.lang.String,java.lang.String,java.nio.file.Path,java.lang.String,java.util.Map)" class="member-name-link">fromKeyStoreFile(String, String, Path, String, Map&lt;String, char[]&gt;)</a> - Static method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></dt>
 <dd>
-<div class="block">Creates KeyStore builder from PKCS#12 or JKS file.</div>
+<div class="block">Creates KeyStore builder for given PKCS#12 or JKS file.</div>
 </dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStore.Builder.html#fromPem(java.nio.file.Path...)" class="member-name-link">fromPem(Path...)</a> - Static method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></dt>
 <dd>
-<div class="block">Creates KeyStore builder from certificate path(s).</div>
+<div class="block">Creates KeyStore builder for certificate path(s).</div>
 </dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStore.Builder.html#fromPem(java.nio.file.Path,java.nio.file.Path)" class="member-name-link">fromPem(Path, Path)</a> - Static method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></dt>
 <dd>
-<div class="block">Creates KeyStore builder from certificate and key path.</div>
+<div class="block">Creates KeyStore builder for given certificate and private key file.</div>
 </dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStore.Builder.html#fromPem(java.util.List,java.util.List)" class="member-name-link">fromPem(List&lt;Path&gt;, List&lt;Path&gt;)</a> - Static method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></dt>
 <dd>
-<div class="block">Creates KeyStore builder from list of certificate and key paths.</div>
+<div class="block">Creates KeyStore builder for given certificate and private key files.</div>
 </dd>
 </dl>
 <h2 class="title" id="I:G">G</h2>
 <dl class="index">
 <dt><a href="keystore_tutorial/PemCredentialFactory.html#generateCertificates(java.nio.file.Path)" class="member-name-link">generateCertificates(Path)</a> - Static method in class keystore_tutorial.<a href="keystore_tutorial/PemCredentialFactory.html" title="class in keystore_tutorial">PemCredentialFactory</a></dt>
 <dd>
-<div class="block">Reads PEM encoded certificate or certificate bundle from file and constructs an array of <code>Certificate</code>.</div>
+<div class="block">Reads PEM encoded certificate or certificate bundle from given file and constructs an array of <code>Certificates</code>.</div>
 </dd>
 <dt><a href="keystore_tutorial/PemCredentialFactory.html#generatePrivateKey(java.nio.file.Path)" class="member-name-link">generatePrivateKey(Path)</a> - Static method in class keystore_tutorial.<a href="keystore_tutorial/PemCredentialFactory.html" title="class in keystore_tutorial">PemCredentialFactory</a></dt>
 <dd>
-<div class="block">Reads PEM encoded private key (PKCS#8) from file and construct <code>PrivateKey</code>.</div>
+<div class="block">Reads PEM encoded private key (PKCS#8) from given file and construct <code>PrivateKey</code>.</div>
 </dd>
 <dt><a href="keystore_tutorial/PemReader.Block.html#getBytes()" class="member-name-link">getBytes()</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/PemReader.Block.html" title="class in keystore_tutorial">PemReader.Block</a></dt>
 <dd>
-<div class="block">Get bytes from the decoded PEM block.</div>
+<div class="block">Get bytes of the decoded PEM block.</div>
 </dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStore.Builder.html#getKeyStore()" class="member-name-link">getKeyStore()</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></dt>
-<dd>&nbsp;</dd>
+<dd>
+<div class="block">Returns the KeyStore described by this object.</div>
+</dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStore.Builder.html#getProtectionParameter(java.lang.String)" class="member-name-link">getProtectionParameter(String)</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></dt>
-<dd>&nbsp;</dd>
+<dd>
+<div class="block">Returns the ProtectionParameters (password) that should be used to obtain the Entry with the given alias.</div>
+</dd>
 <dt><a href="keystore_tutorial/PemReader.Block.html#getType()" class="member-name-link">getType()</a> - Method in class keystore_tutorial.<a href="keystore_tutorial/PemReader.Block.html" title="class in keystore_tutorial">PemReader.Block</a></dt>
 <dd>
-<div class="block">Get type from PEM header.</div>
+<div class="block">Get type of the PEM block.</div>
 </dd>
 </dl>
 <h2 class="title" id="I:I">I</h2>
@@ -186,13 +190,13 @@ loadScripts(document, 'script');</script>
 <dl class="index">
 <dt><a href="keystore_tutorial/ReloadingKeyStore.html" class="type-name-link" title="class in keystore_tutorial">ReloadingKeyStore</a> - Class in <a href="keystore_tutorial/package-summary.html">keystore_tutorial</a></dt>
 <dd>
-<div class="block">KeyStore that can reload itself when the backing files are modified.</div>
+<div class="block">KeyStore that can reload the wrapped delegate <code>KeyStore</code> when the backing files have been changed on disk.</div>
 </dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStore.html#%3Cinit%3E(java.security.KeyStoreSpi,java.security.Provider,java.lang.String)" class="member-name-link">ReloadingKeyStore(KeyStoreSpi, Provider, String)</a> - Constructor for class keystore_tutorial.<a href="keystore_tutorial/ReloadingKeyStore.html" title="class in keystore_tutorial">ReloadingKeyStore</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStore.Builder.html" class="type-name-link" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a> - Class in <a href="keystore_tutorial/package-summary.html">keystore_tutorial</a></dt>
 <dd>
-<div class="block">KeyStore.Builder implementation for reloading keystores.</div>
+<div class="block">KeyStore.Builder creates reloading keystores for various types of credential files.</div>
 </dd>
 <dt><a href="keystore_tutorial/ReloadingKeyStoreFileSpi.html" class="type-name-link" title="class in keystore_tutorial">ReloadingKeyStoreFileSpi</a> - Class in <a href="keystore_tutorial/package-summary.html">keystore_tutorial</a></dt>
 <dd>

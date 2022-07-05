@@ -55,7 +55,7 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color all-classes-table all-classes-table-tab2"><a href="keystore_tutorial/DelegatingKeyStoreSpi.html" title="class in keystore_tutorial">DelegatingKeyStoreSpi</a></div>
 <div class="col-last even-row-color all-classes-table all-classes-table-tab2">
-<div class="block"><code>KeyStoreSpi</code> that delegates calls to an instance of <code>KeyStore</code>.</div>
+<div class="block"><code>KeyStoreSpi</code> that delegates calls to another instance of <code>KeyStore</code>.</div>
 </div>
 <div class="col-first odd-row-color all-classes-table all-classes-table-tab2"><a href="keystore_tutorial/PemCredentialFactory.html" title="class in keystore_tutorial">PemCredentialFactory</a></div>
 <div class="col-last odd-row-color all-classes-table all-classes-table-tab2">
@@ -67,11 +67,11 @@ loadScripts(document, 'script');</script>
 </div>
 <div class="col-first odd-row-color all-classes-table all-classes-table-tab2"><a href="keystore_tutorial/ReloadingKeyStore.html" title="class in keystore_tutorial">ReloadingKeyStore</a></div>
 <div class="col-last odd-row-color all-classes-table all-classes-table-tab2">
-<div class="block">KeyStore that can reload itself when the backing files are modified.</div>
+<div class="block">KeyStore that can reload the wrapped delegate <code>KeyStore</code> when the backing files have been changed on disk.</div>
 </div>
 <div class="col-first even-row-color all-classes-table all-classes-table-tab2"><a href="keystore_tutorial/ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></div>
 <div class="col-last even-row-color all-classes-table all-classes-table-tab2">
-<div class="block">KeyStore.Builder implementation for reloading keystores.</div>
+<div class="block">KeyStore.Builder creates reloading keystores for various types of credential files.</div>
 </div>
 <div class="col-first odd-row-color all-classes-table all-classes-table-tab2"><a href="keystore_tutorial/ReloadingKeyStoreFileSpi.html" title="class in keystore_tutorial">ReloadingKeyStoreFileSpi</a></div>
 <div class="col-last odd-row-color all-classes-table all-classes-table-tab2">
