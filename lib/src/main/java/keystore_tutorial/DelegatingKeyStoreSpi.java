@@ -40,7 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Implements {@code KeyStoreSpi} by delegating SPI calls to an instance of {@code KeyStore}.
+ * {@code KeyStoreSpi} that delegates calls to an instance of {@code KeyStore}.
  * The delegate keystore can be replaced on demand when the underlying certificate(s) and key(s) require that.
  *
  * The class returns aliases in sorted order instead of the order that underlying KeyStore would return them.

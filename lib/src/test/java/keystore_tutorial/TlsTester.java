@@ -272,7 +272,7 @@ public class TlsTester {
 
         // Load the keystore from disk with ReloadingKeyStore and construct KeyManagerFactory for it.
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("NewSunX509");
-        kmf.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
+        kmf.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
                 "")));
 
         return kmf;
@@ -297,7 +297,7 @@ public class TlsTester {
 
         // Load the keystore from disk with ReloadingKeyStore and construct TrustManagerFactory for it.
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
-        tmf.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath, "").getKeyStore());
+        tmf.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath, "").getKeyStore());
 
         return tmf;
     }

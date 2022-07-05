@@ -32,8 +32,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Implements {@code KeyStoreSpi} that reads certificates and private keys from PEM files instead of keystore files.
- * Reloads the files when they change on disk to support certificate hot-reload (also known as hitless reload).
+ * {@code KeyStoreSpi} implementation that hot-reloads certificates and private keys from PEM files when the backing files change.
  */
 public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
 

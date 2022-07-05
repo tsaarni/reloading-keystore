@@ -25,7 +25,7 @@ import java.nio.file.Path;
 import java.util.Base64;
 
 /**
- * Implements support for reading PEM encoded files and PEM bundles.
+ * Reads PEM encoded files and PEM bundles.
  */
 public class PemReader {
 

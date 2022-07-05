@@ -34,7 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Implements methods to read PEM files.
+ * Reads PEM files and constructs {@code Certificates} and {@code PrivateKeys} from them.
  */
 public class PemCredentialFactory {
 

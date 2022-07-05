@@ -104,7 +104,7 @@ public class TestReloadingKeyStore {
         Path ksPath = tempDir.resolve("keystore.p12");
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
-        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath, "secret");
+        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath, "secret");
 
         KeyStore reloadingKs = builder.getKeyStore();
         assertNotNull(reloadingKs);
@@ -174,7 +174,7 @@ public class TestReloadingKeyStore {
             ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
             // Load initial keystore from the disk.
-            KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
+            KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
                     "secret");
             KeyStore reloadingKs = builder.getKeyStore();
             assertNotNull(reloadingKs);
@@ -216,7 +216,7 @@ public class TestReloadingKeyStore {
         Path ksPath = tempDir.resolve("keystore.p12");
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
-        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
+        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
                 "secret");
         KeyStore reloadingKs = builder.getKeyStore();
         assertNotNull(ks);

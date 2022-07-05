@@ -61,12 +61,12 @@ public class TestReloadingKeyStoreWithTls {
 
         // Create KeyManager for server.
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
-        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
+        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
                 "secret")));
 
         // Create TrustManager for client.
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
-        tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", tsPath,
+        tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", tsPath,
                 "secret").getKeyStore());
 
         // Create TLS connection.
@@ -367,12 +367,12 @@ public class TestReloadingKeyStoreWithTls {
         Map<String, char[]> aliasPasswords = new HashMap<>();
         aliasPasswords.put("foo", "password foo".toCharArray());
         aliasPasswords.put("bar", "password bar".toCharArray());
-        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", ksPath,
+        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
                 "secret", aliasPasswords)));
 
         // Create TrustManager for client.
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
-        tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SUN", tsPath,
+        tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", tsPath,
                 "secret").getKeyStore());
 
         // Create TLS connection with SNI servername: foo.com.

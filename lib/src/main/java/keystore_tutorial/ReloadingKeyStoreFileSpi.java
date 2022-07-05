@@ -29,8 +29,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Implements {@code KeyStoreSpi} that reloads underlying keystore file when it changes on disk
- * to support certificate hot-reload (also known as hitless reload).
+ * {@code KeyStoreSpi} implementation that hot-reloads {@code KeyStore} when the backing file changes.
  */
 public class ReloadingKeyStoreFileSpi extends DelegatingKeyStoreSpi {
 

@@ -51,7 +51,7 @@ public class ReloadingKeyStore extends KeyStore {
     }
 
     /**
-     * Builder implementation for reloading keystore.
+     * KeyStore.Builder implementation for reloading keystores.
      */
     public static class Builder extends KeyStore.Builder {
 
@@ -125,7 +125,7 @@ public class ReloadingKeyStore extends KeyStore {
          * @param provider KeyStore provider.
          * @param path Path to the keystore file.
          * @param password Password used to decrypt the KeyStore.
-         * @param aliasPasswords Passwords used to decrypt keystore entries (map of alias -> password).
+         * @param aliasPasswords Passwords used to decrypt keystore entries. Map of: alias (key), password (value).
          * @return The KeyStore builder.
          */
         public static KeyStore.Builder fromKeyStoreFile(String type, String provider, Path path, String password,
