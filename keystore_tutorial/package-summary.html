@@ -68,15 +68,15 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color class-summary class-summary-tab2"><a href="DelegatingKeyStoreSpi.html" title="class in keystore_tutorial">DelegatingKeyStoreSpi</a></div>
 <div class="col-last even-row-color class-summary class-summary-tab2">
-<div class="block">Implements <code>KeyStoreSpi</code> by delegating SPI calls to an instance of <code>KeyStore</code>.</div>
+<div class="block"><code>KeyStoreSpi</code> that delegates calls to an instance of <code>KeyStore</code>.</div>
 </div>
 <div class="col-first odd-row-color class-summary class-summary-tab2"><a href="PemCredentialFactory.html" title="class in keystore_tutorial">PemCredentialFactory</a></div>
 <div class="col-last odd-row-color class-summary class-summary-tab2">
-<div class="block">Implements methods to read PEM files.</div>
+<div class="block">Reads PEM files and constructs <code>Certificates</code> and <code>PrivateKeys</code> from them.</div>
 </div>
 <div class="col-first even-row-color class-summary class-summary-tab2"><a href="PemReader.html" title="class in keystore_tutorial">PemReader</a></div>
 <div class="col-last even-row-color class-summary class-summary-tab2">
-<div class="block">Implements support for reading PEM encoded files and PEM bundles.</div>
+<div class="block">Reads PEM encoded files and PEM bundles.</div>
 </div>
 <div class="col-first odd-row-color class-summary class-summary-tab2"><a href="ReloadingKeyStore.html" title="class in keystore_tutorial">ReloadingKeyStore</a></div>
 <div class="col-last odd-row-color class-summary class-summary-tab2">
@@ -84,16 +84,15 @@ loadScripts(document, 'script');</script>
 </div>
 <div class="col-first even-row-color class-summary class-summary-tab2"><a href="ReloadingKeyStore.Builder.html" title="class in keystore_tutorial">ReloadingKeyStore.Builder</a></div>
 <div class="col-last even-row-color class-summary class-summary-tab2">
-<div class="block">Builder implementation for reloading keystore.</div>
+<div class="block">KeyStore.Builder implementation for reloading keystores.</div>
 </div>
 <div class="col-first odd-row-color class-summary class-summary-tab2"><a href="ReloadingKeyStoreFileSpi.html" title="class in keystore_tutorial">ReloadingKeyStoreFileSpi</a></div>
 <div class="col-last odd-row-color class-summary class-summary-tab2">
-<div class="block">Implements <code>KeyStoreSpi</code> that reloads underlying keystore file when it changes on disk
- to support certificate hot-reload (also known as hitless reload).</div>
+<div class="block"><code>KeyStoreSpi</code> implementation that hot-reloads <code>KeyStore</code> when the backing file changes.</div>
 </div>
 <div class="col-first even-row-color class-summary class-summary-tab2"><a href="ReloadingPemFileKeyStoreSpi.html" title="class in keystore_tutorial">ReloadingPemFileKeyStoreSpi</a></div>
 <div class="col-last even-row-color class-summary class-summary-tab2">
-<div class="block">Implements <code>KeyStoreSpi</code> that reads certificates and private keys from PEM files instead of keystore files.</div>
+<div class="block"><code>KeyStoreSpi</code> implementation that hot-reloads certificates and private keys from PEM files when the backing files change.</div>
 </div>
 </div>
 </div>
