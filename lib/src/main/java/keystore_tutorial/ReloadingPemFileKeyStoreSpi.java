@@ -43,12 +43,6 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
     private final List<KeyFileEntry> keyFileEntries = new ArrayList<>();
     private final List<CertificateFileEntry> certificateFileEntries = new ArrayList<>();
 
-    /**
-     * @throws CertificateException
-     * @throws NoSuchAlgorithmException
-     * @throws InvalidKeySpecException
-     * @throws KeyStoreException
-     */
     public ReloadingPemFileKeyStoreSpi() {
     }
 
@@ -57,9 +51,13 @@ public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
      *
      * @param cert Path to certificate file in PEM format.
      * @param key Path to private key file in PEM format.
+     * @throws IOException
+     * @throws CertificateException
+     * @throws InvalidKeySpecException
+     * @throws KeyStoreException
+     * @throws NoSuchAlgorithmException
      */
-    public void addKeyEntry(Path cert, Path key) throws KeyStoreException, InvalidKeySpecException,
-            NoSuchAlgorithmException, CertificateException, IOException {
+    public void addKeyEntry(Path cert, Path key) throws IOException, KeyStoreException, InvalidKeySpecException, NoSuchAlgorithmException, CertificateException {
         keyFileEntries.add(new KeyFileEntry(cert, key));
         setKeyStoreDelegate(createKeyStore());
     }
