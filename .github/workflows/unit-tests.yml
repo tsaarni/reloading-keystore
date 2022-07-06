@@ -1,8 +1,9 @@
-name: generate-javadoc
+name: unit-tests
 
 on:
   push:
-   branches: [ main ]
+   branches:
+     - main
 
 jobs:
   gradle:
@@ -12,15 +13,15 @@ jobs:
     - uses: actions/setup-java@v3
       with:
         distribution: temurin
-        java-version: 17
+        java-version: 8
 
     - name: Setup Gradle
       uses: gradle/gradle-build-action@v2
 
-    - name: Generate javadoc
-      run: ./gradlew javadoc
+    - name: Execute Gradle build
+      run: ./gradlew build
 
-    - name: Deploy 🚀
+    - name: Deploy API docs
       uses: JamesIves/github-pages-deploy-action@v4.3.3
       with:
         branch: gh-pages

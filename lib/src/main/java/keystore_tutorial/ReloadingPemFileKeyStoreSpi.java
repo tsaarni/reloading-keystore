@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 public class ReloadingPemFileKeyStoreSpi extends DelegatingKeyStoreSpi {
 
     // Empty password used for the in-memory KeyStore that holds the credentials loaded from PEM files.
-    public static final char[] IN_MEMORY_KEYSTORE_PASSWORD = "".toCharArray();
+    protected static final char[] IN_MEMORY_KEYSTORE_PASSWORD = "".toCharArray();
 
     private static final Logger log = LoggerFactory.getLogger(ReloadingPemFileKeyStoreSpi.class);
 

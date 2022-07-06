@@ -9,9 +9,9 @@ This project is a tutorial on how to implement custom `KeyStoreSpi` with followi
 
 * Load certificates and private keys directly from `.pem` files, in addition to `.p12` and `.jks` keystore files.
 * Automatically reload credentials from disk when the underlying files change.
-* Allow user to set fallback certificate which will be used by server when a client does not send SNI extension or sends unknown servername.
+* Allow user to set fallback certificate which will be used by server when a client does not send TLS SNI extension (Server Name Indication) or sends unknown servername.
 
-These features can be implemented with relatively little code (under 600 lines), without external dependencies and without background threads.
+These features can be implemented in relatively few lines of code, without external dependencies and without background threads.
 
 ### Shortcomings of Java KeyStores
 
@@ -32,7 +32,7 @@ The ability to reload certificates and keys at runtime is often referred to as _
 #### Fallback certificate
 
 Last shortcoming is related to certificate selection when more than one certificate is included in a `KeyStore`.
-`NewSunX509` implementation of `X509KeyManager` supports server certificate selection according to TLS SNI (Server Name Indication) sent by the client.
+`NewSunX509` implementation of `X509KeyManager` supports server certificate selection according to TLS SNI extension sent by the client.
 However, JSSE `KeyStores` do not return certificates in order that would allow user to know which certificate will be selected by when the client _does not_ send TLS SNI servername, or sends unknown servername.
 Deterministic behavior would be required to implement a feature which is often referred to as _fallback certificate_ or _default certificate_.
 
@@ -48,8 +48,8 @@ We construct a custom `KeyStore` which will have the special capabilities mentio
 We then pass it to `KeyManager` just like the standard `KeyStores`.
 
 ```java
-// Create KeyManagerFactory with our KeyStore,
-// constructed from two PEM files: server.pem and server-key.pem.
+// Create KeyManagerFactory with our KeyStoreSpi constructed from:
+// server.pem and server-key.pem.
 KeyManagerFactory kmf = KeyManagerFactory.getInstance("NewSunX509");
 kmf.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(
     Paths.get("server.pem"), Paths.get("server-key.pem"))));

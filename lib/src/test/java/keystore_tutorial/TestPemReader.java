@@ -15,19 +15,23 @@
  */
 package keystore_tutorial;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
+import java.io.IOException;
+
 import org.junit.jupiter.api.Test;
 
 import fi.protonode.certy.Credential;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.io.IOException;
-
+/**
+ * Parse PEM files.
+ */
 public class TestPemReader {
 
     @Test
     void testPemBundle() throws Exception {
-        // Create bundle with certificate and private key.
+        // Create bundle with certificate and private key in single file.
         Credential cred = new Credential().subject("CN=joe");
         String pemBundle = cred.getCertificateAsPem() + cred.getPrivateKeyAsPem();
 

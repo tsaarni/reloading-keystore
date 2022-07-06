@@ -15,14 +15,10 @@
  */
 package keystore_tutorial;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
-
-import fi.protonode.certy.Credential;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mockStatic;
 
 import java.io.IOException;
@@ -31,6 +27,7 @@ import java.nio.file.Path;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.time.Instant;
@@ -38,10 +35,23 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+
+import fi.protonode.certy.Credential;
+
+/**
+ * Use ReloadingKeyStore as KeyStore with following extra capabilities:
+ * - Construct KeyStore directly from PEM files.
+ * - Update KeyStore when underlying files on disk are updated.
+ * - Return entries in deterministic order, sorted by aliases.
+ */
 public class TestReloadingKeyStore {
 
     @Test
-    void testCreateKeyStoreFromPems(@TempDir Path tempDir) throws Exception {
+    void testCreateReloadingKeyStoreFromPemFiles(@TempDir Path tempDir) throws Exception {
         Path certPath1 = tempDir.resolve("server1.pem");
         Path keyPath1 = tempDir.resolve("server1-key.pem");
         Path certPath2 = tempDir.resolve("server2.pem");
@@ -66,7 +76,7 @@ public class TestReloadingKeyStore {
     }
 
     @Test
-    void testCreateKeyStoreFromJks(@TempDir Path tempDir) throws Exception {
+    void testCreateReloadingKeyStoreFromJks(@TempDir Path tempDir) throws Exception {
         Credential server1 = new Credential().subject("CN=server1");
         Credential server2 = new Credential().subject("CN=server2");
 
@@ -78,21 +88,18 @@ public class TestReloadingKeyStore {
         Path ksPath = tempDir.resolve("keystore.p12");
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
-        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("JKS", "SUN", ksPath,
-                "secret");
+        KeyStore gotKs = ReloadingKeyStore.Builder.fromKeyStoreFile("JKS", ksPath, "secret").getKeyStore();
+        assertNotNull(gotKs);
 
-        KeyStore reloadingKs = builder.getKeyStore();
-        assertNotNull(reloadingKs);
-
-        assertEquals(Arrays.asList("server1", "server2"), Collections.list(reloadingKs.aliases()));
-        assertArrayEquals(server1.getCertificates(), reloadingKs.getCertificateChain("server1"));
-        assertArrayEquals(server2.getCertificates(), reloadingKs.getCertificateChain("server2"));
-        assertEquals(server1.getPrivateKey(), reloadingKs.getKey("server1", "".toCharArray()));
-        assertEquals(server2.getPrivateKey(), reloadingKs.getKey("server2", "".toCharArray()));
+        assertEquals(Arrays.asList("server1", "server2"), Collections.list(gotKs.aliases()));
+        assertArrayEquals(server1.getCertificates(), gotKs.getCertificateChain("server1"));
+        assertArrayEquals(server2.getCertificates(), gotKs.getCertificateChain("server2"));
+        assertEquals(server1.getPrivateKey(), gotKs.getKey("server1", "".toCharArray()));
+        assertEquals(server2.getPrivateKey(), gotKs.getKey("server2", "".toCharArray()));
     }
 
     @Test
-    void testCreateKeyStoreFromPkcs12(@TempDir Path tempDir) throws Exception {
+    void testCreateReloadingKeyStoreFromPkcs12(@TempDir Path tempDir) throws Exception {
         Credential server1 = new Credential().subject("CN=server1");
         Credential server2 = new Credential().subject("CN=server2");
 
@@ -104,16 +111,14 @@ public class TestReloadingKeyStore {
         Path ksPath = tempDir.resolve("keystore.p12");
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
-        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath, "secret");
+        KeyStore gotKs = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret").getKeyStore();
+        assertNotNull(gotKs);
 
-        KeyStore reloadingKs = builder.getKeyStore();
-        assertNotNull(reloadingKs);
-
-        assertEquals(Arrays.asList("server1", "server2"), Collections.list(reloadingKs.aliases()));
-        assertArrayEquals(server1.getCertificates(), reloadingKs.getCertificateChain("server1"));
-        assertArrayEquals(server2.getCertificates(), reloadingKs.getCertificateChain("server2"));
-        assertEquals(server1.getPrivateKey(), reloadingKs.getKey("server1", null));
-        assertEquals(server2.getPrivateKey(), reloadingKs.getKey("server2", null));
+        assertEquals(Arrays.asList("server1", "server2"), Collections.list(gotKs.aliases()));
+        assertArrayEquals(server1.getCertificates(), gotKs.getCertificateChain("server1"));
+        assertArrayEquals(server2.getCertificates(), gotKs.getCertificateChain("server2"));
+        assertEquals(server1.getPrivateKey(), gotKs.getKey("server1", null));
+        assertEquals(server2.getPrivateKey(), gotKs.getKey("server2", null));
     }
 
     @Test
@@ -174,14 +179,12 @@ public class TestReloadingKeyStore {
             ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
             // Load initial keystore from the disk.
-            KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
-                    "secret");
-            KeyStore reloadingKs = builder.getKeyStore();
-            assertNotNull(reloadingKs);
+            KeyStore gotKs = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret").getKeyStore();
+            assertNotNull(gotKs);
 
             // Check that we got the initial certificate and key back.
-            assertArrayEquals(credBeforeUpdate.getCertificates(), reloadingKs.getCertificateChain("cred"));
-            assertEquals(credBeforeUpdate.getPrivateKey(), reloadingKs.getKey("cred", null));
+            assertArrayEquals(credBeforeUpdate.getCertificates(), gotKs.getCertificateChain("cred"));
+            assertEquals(credBeforeUpdate.getPrivateKey(), gotKs.getKey("cred", null));
 
             // Write updated keystore to the disk.
             Credential credAfterUpdate = new Credential().subject("CN=joe");
@@ -191,15 +194,15 @@ public class TestReloadingKeyStore {
             ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
             // Check that we still get old credentials back, before cache TTL expires.
-            assertArrayEquals(credBeforeUpdate.getCertificates(), reloadingKs.getCertificateChain("cred"));
-            assertEquals(credBeforeUpdate.getPrivateKey(), reloadingKs.getKey("cred", null));
+            assertArrayEquals(credBeforeUpdate.getCertificates(), gotKs.getCertificateChain("cred"));
+            assertEquals(credBeforeUpdate.getPrivateKey(), gotKs.getKey("cred", null));
 
             // Advance time to expire cache TTL.
             mockedStatic.when(() -> Instant.now()).thenReturn(after);
 
             // Check that keystore was reloaded from disk after cache TTL expired.
-            assertArrayEquals(credAfterUpdate.getCertificates(), reloadingKs.getCertificateChain("cred"));
-            assertEquals(credAfterUpdate.getPrivateKey(), reloadingKs.getKey("cred", null));
+            assertArrayEquals(credAfterUpdate.getCertificates(), gotKs.getCertificateChain("cred"));
+            assertEquals(credAfterUpdate.getPrivateKey(), gotKs.getKey("cred", null));
         }
     }
 
@@ -216,13 +219,11 @@ public class TestReloadingKeyStore {
         Path ksPath = tempDir.resolve("keystore.p12");
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
-        KeyStore.Builder builder = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
-                "secret");
-        KeyStore reloadingKs = builder.getKeyStore();
-        assertNotNull(ks);
+        KeyStore gotKs = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret").getKeyStore();
+        assertNotNull(gotKs);
 
         assertEquals(Arrays.asList("01-in-random", "02-order", "03-certs-added", "04-to-the-store"),
-                Collections.list(reloadingKs.aliases()));
+                Collections.list(gotKs.aliases()));
     }
 
     @Test
@@ -238,5 +239,28 @@ public class TestReloadingKeyStore {
         Path keyPath = tempDir.resolve("key.pem");
         new Credential().subject("CN=joe").writeCertificateAsPem(certPath).writePrivateKeyAsPem(keyPath);
         assertThrows(IllegalArgumentException.class, () -> ReloadingKeyStore.Builder.fromPem(keyPath, certPath));
+    }
+
+    @Test
+    void testInvalidKeyEntryPassword(@TempDir Path tempDir) throws Exception {
+        Path ksPath = tempDir.resolve("keystore.p12");
+
+        Credential cred = new Credential().subject("CN=joe");
+
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+        ks.setKeyEntry("cred", cred.getPrivateKey(), "correct-password".toCharArray(), cred.getCertificates());
+        ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
+
+        KeyStore gotKs = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret").getKeyStore();
+        assertNotNull(gotKs);
+
+        // Note:
+        // When accessing the key directly via KeyStore (instead of KeyManager),
+        // exception is received with descriptive error when given key entry password is wrong:
+        //     java.security.UnrecoverableKeyException:
+        //        Get Key failed: Given final block not properly padded.
+        //        Such issues can arise if a bad key is used during decryption.
+        assertThrows(UnrecoverableEntryException.class, () -> gotKs.getKey("cred", "invalid-password".toCharArray()));
     }
 }

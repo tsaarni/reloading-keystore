@@ -54,6 +54,9 @@ import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import fi.protonode.certy.Credential;
 
 public class TlsTester {
@@ -65,6 +68,8 @@ public class TlsTester {
      * Server that accepts client connections, executes TLS handshake and then closes the client connection.
      */
     static public class Server implements Runnable, Closeable {
+
+        private static final Logger log = LoggerFactory.getLogger(Server.class);
 
         private final String host = "localhost";
         private final int port = 18040;
@@ -79,11 +84,17 @@ public class TlsTester {
                 throws NoSuchAlgorithmException, KeyManagementException, IOException {
 
             // Initialize server socket.
+            log.debug("Creating server socket (KeyStore={}, TrustStore={})",
+                    kms != null ? "present" : "none",
+                    tms != null ? "present" : "none");
+
             ctx.init(kms, tms, null);
             SSLServerSocketFactory ssf = ctx.getServerSocketFactory();
+            log.debug("Server socket bound to {}:{}", host, port);
             socket = (SSLServerSocket) ssf.createServerSocket(port, 1, InetAddress.getByName(host));
 
-            // TLSv1.3 is easier to troubleshoot with Wireshark (due to unencrypted handshake).
+            // Since TLSv1.3 uses encrypted handshake, using Wireshark becomes bit more tricky.
+            // Therefore use TLSv1.2 in the tests, for observability reasons.
             socket.setEnabledProtocols(new String[] { "TLSv1.2" });
 
             // Enable client authentication if TrustManager(s) are given.
@@ -97,16 +108,19 @@ public class TlsTester {
         }
 
         public Server protocols(String[] protocols) {
+            log.debug("Setting protocols: {}", (Object) protocols);
             socket.setEnabledProtocols(protocols);
             return this;
         }
 
         public Server ciphers(String[] suites) {
+            log.debug("Setting ciphers: {}", (Object) suites);
             socket.setEnabledCipherSuites(suites);
             return this;
         }
 
         public Server clientAuth(boolean enable) {
+            log.debug("{} client authentication", enable ? "Enabling" : "Disabling");
             socket.setWantClientAuth(enable);
             socket.setNeedClientAuth(enable);
             clientAuthentication = enable;
@@ -119,6 +133,7 @@ public class TlsTester {
                 socket.close();
                 executor.shutdown();
             } catch (IOException e) {
+                log.error("Received exception:", e);
                 e.printStackTrace();
             }
         }
@@ -126,8 +141,10 @@ public class TlsTester {
         @Override
         public void run() {
             // Wait for client to connect.
+            log.debug("Listening for client to connect...");
             try (SSLSocket client = (SSLSocket) socket.accept()) {
                 // Execute TLS handshake.
+                log.debug("Client connected: executing TLS handshake");
                 client.startHandshake();
 
                 // Pass the client credentials to main thread if client authentication was enabled.
@@ -135,9 +152,11 @@ public class TlsTester {
                     SSLSession sess = client.getSession();
                     clientCertificates.complete(sess.getPeerCertificates());
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
+                log.error("Received exception:", e);
                 e.printStackTrace();
             }
+            log.debug("Server exiting");
         }
 
         public int getPort() {
@@ -184,17 +203,26 @@ public class TlsTester {
      */
     static public class Client {
 
+        private static final Logger log = LoggerFactory.getLogger(Client.class);
+
         private final SSLContext ctx = SSLContext.getInstance("TLS");
         SSLSocket socket;
 
         public Client(KeyManager[] kms, TrustManager[] tms)
                 throws NoSuchAlgorithmException, KeyManagementException, IOException {
+
+            // Initialize client socket.
+            log.debug("Creating client socket (KeyStore={}, TrustStore={})",
+                    kms != null ? "present" : "none",
+                    tms != null ? "present" : "none");
+
             ctx.init(kms, tms, null);
             SSLSocketFactory sf = ctx.getSocketFactory();
             socket = (SSLSocket) sf.createSocket();
         }
 
         public Client serverName(String serverName) {
+            log.debug("Setting SNI servername: {}", serverName);
             SSLParameters params = socket.getSSLParameters();
             SNIHostName sni = new SNIHostName(serverName);
             params.setServerNames(Arrays.asList(sni));
@@ -203,11 +231,13 @@ public class TlsTester {
         }
 
         public Client ciphers(String[] suites) {
+            log.debug("Setting ciphers: {}", (Object) suites);
             socket.setEnabledCipherSuites(suites);
             return this;
         }
 
         public Client protocols(String[] protocols) {
+            log.debug("protocols ciphers: {}", (Object) protocols);
             socket.setEnabledProtocols(protocols);
             return this;
         }
@@ -217,7 +247,9 @@ public class TlsTester {
         }
 
         public Client connect(String host, int port) throws IOException {
+            log.debug("Connecting to server {}:{}...", host, port);
             socket.connect(new InetSocketAddress(host, port), 2000 /* msec */);
+            log.debug("Connected to server: executing TLS handshake");
             socket.startHandshake();
             return this;
         }
@@ -225,6 +257,7 @@ public class TlsTester {
         public Certificate[] getServerCertificate() throws SSLPeerUnverifiedException {
             return socket.getSession().getPeerCertificates();
         }
+
     }
 
     /**
@@ -272,8 +305,8 @@ public class TlsTester {
 
         // Load the keystore from disk with ReloadingKeyStore and construct KeyManagerFactory for it.
         KeyManagerFactory kmf = KeyManagerFactory.getInstance("NewSunX509");
-        kmf.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
-                "")));
+        kmf.init(
+                new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "")));
 
         return kmf;
     }
@@ -297,8 +330,9 @@ public class TlsTester {
 
         // Load the keystore from disk with ReloadingKeyStore and construct TrustManagerFactory for it.
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
-        tmf.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath, "").getKeyStore());
+        tmf.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "").getKeyStore());
 
         return tmf;
     }
+
 }

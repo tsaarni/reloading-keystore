@@ -16,6 +16,7 @@
 package keystore_tutorial;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,23 +27,32 @@ import java.util.Map;
 
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.KeyStoreBuilderParameters;
+import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.TrustManagerFactory;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import fi.protonode.certy.Credential;
 import fi.protonode.certy.Credential.KeyType;
 
+/**
+ * Use ReloadingKeyStore together with KeyManager, TrustManager and SSLContext.
+ */
 public class TestReloadingKeyStoreWithTls {
 
+
+    @BeforeEach
+    void enableJavaLogs() {
+        // Enable Java KeyManager and TrustManager debug printouts.
+        System.setProperty("javax.net.debug", "keymanager:trustmanager");
+    }
+
     @Test
-    void testServerAuthenticationWithKeyStore(@TempDir Path tempDir) throws Exception {
+    void testServerAuthenticationWithP12KeyStore(@TempDir Path tempDir) throws Exception {
         Path ksPath = tempDir.resolve("server.p12");
         Path tsPath = tempDir.resolve("trusted.p12");
-
-        // Enable Java KeyManager debug printouts.
-        System.setProperty("javax.net.debug", "keymanager:trustmanager");
 
         // Create CA and server certificate.
         Credential caCreds = new Credential().subject("CN=ca");
@@ -61,15 +71,16 @@ public class TestReloadingKeyStoreWithTls {
 
         // Create KeyManager for server.
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
-        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
-                "secret")));
+        kmfServer.init(
+                new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret")));
 
         // Create TrustManager for client.
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
-        tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", tsPath,
-                "secret").getKeyStore());
+        tmfClient.init(
+            ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", tsPath, "secret").getKeyStore());
 
         // Create TLS connection.
+        // Check that the client received expected server certificate.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connect(server, tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -79,9 +90,6 @@ public class TestReloadingKeyStoreWithTls {
 
     @Test
     void testServerAuthenticationWithPem(@TempDir Path tempDir) throws Exception {
-        // Enable Java KeyManager debug printouts.
-        // System.setProperty("javax.net.debug", "keymanager:trustmanager");
-
         Path serverCaCertPem = tempDir.resolve("server-ca.pem");
         Path serverCertPem = tempDir.resolve("server.pem");
         Path serverKeyPem = tempDir.resolve("server-key.pem");
@@ -100,6 +108,7 @@ public class TestReloadingKeyStoreWithTls {
         tmfClient.init(ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore());
 
         // Create TLS connection.
+        // Check that the client received expected server certificate.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connect(server, tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -109,9 +118,6 @@ public class TestReloadingKeyStoreWithTls {
 
     @Test
     void testMutualAuthenticationWithPem(@TempDir Path tempDir) throws Exception {
-        // Enable Java KeyManager debug printouts.
-        System.setProperty("javax.net.debug", "keymanager:trustmanager");
-
         Path serverCaCertPem = tempDir.resolve("server-ca.pem");
         Path clientCaCertPem = tempDir.resolve("client-ca.pem");
         Path serverCertPem = tempDir.resolve("server.pem");
@@ -144,6 +150,8 @@ public class TestReloadingKeyStoreWithTls {
         tmfClient.init(ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore());
 
         // Create TLS connection.
+        // Check that the client received expected server certificate.
+        // Check that the server received expected client certificate.
         try (TlsTester.Server server = TlsTester.serverWithMutualAuth(kmfServer.getKeyManagers(),
                 tmfServer.getTrustManagers())) {
             Certificate[] gotServerCerts = TlsTester
@@ -159,6 +167,7 @@ public class TestReloadingKeyStoreWithTls {
     void testMultipleServerCertificateWithSniSelection(@TempDir Path tempDir) throws Exception {
 
         // Create CA and server certificates for a server that supports several virtualhosts.
+        // The certificates have virtualhost's DNS name in their Subject Alternative Name (SAN) field.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
         Credential serverFooCreds = new Credential().subject("CN=foo").issuer(serverCaCreds)
                 .subjectAltName("DNS:foo.com");
@@ -169,6 +178,7 @@ public class TestReloadingKeyStoreWithTls {
         TrustManagerFactory tmfClient = TlsTester.createTrustManagerFactory(tempDir, serverCaCreds);
 
         // Create TLS connection with SNI servername: foo.com.
+        // Check that the client received server certificate for foo.com.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connectWithSni(server, "foo.com", tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -176,6 +186,7 @@ public class TestReloadingKeyStoreWithTls {
         }
 
         // Create TLS connection with SNI servername: bar.com.
+        // Check that the client received server certificate for bar.com.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connectWithSni(server, "bar.com", tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -185,13 +196,15 @@ public class TestReloadingKeyStoreWithTls {
 
     @Test
     void testFallbackServerCertificateSelection(@TempDir Path tempDir) throws Exception {
-
         // Create CA.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
 
-        // Helper method createKeyManagerFactory() uses subject as KeyStore alias.
-        // ReloadingKeyStore sorts aliases, so that we will have stable fallback / default certificate:
-        // the key entry with alias that becomes first in sorting order.
+        // Note:
+        // ReloadingKeyStore sorts the KeyStore *aliases* and fallback certificate is selected by the order
+        // of *aliases* returned by the KeyStore - X509KeyManager will pick up the first certificate.
+        //
+        // Because helper method TlsTester.createKeyManagerFactory() uses subject as KeyStore alias, we pick subject
+        // names for the sorting order.
         Credential serverFooCreds = new Credential().subject("CN=01-foo-com-credentials").issuer(serverCaCreds)
                 .subjectAltName("DNS:foo.com");
         Credential serverFallbackCreds = new Credential().subject("CN=00-fallback-credentials").issuer(serverCaCreds);
@@ -200,6 +213,7 @@ public class TestReloadingKeyStoreWithTls {
         TrustManagerFactory tmfClient = TlsTester.createTrustManagerFactory(tempDir, serverCaCreds);
 
         // Create TLS connection with SNI servername: foo.com.
+        // Check that the client received server certificate for foo.com.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connectWithSni(server, "foo.com", tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -207,6 +221,7 @@ public class TestReloadingKeyStoreWithTls {
         }
 
         // Create TLS connection with SNI servername that does not match: unknown.com.
+        // Check that the client received the fallback server certificate.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connectWithSni(server, "unknown.com", tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -214,6 +229,7 @@ public class TestReloadingKeyStoreWithTls {
         }
 
         // Create TLS connection without SNI.
+        // Check that the client received the fallback server certificate.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connect(server, tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -224,7 +240,8 @@ public class TestReloadingKeyStoreWithTls {
     @Test
     void testMultipleServerCertificateWithKeyTypeSelection(@TempDir Path tempDir) throws Exception {
 
-        // Create CA and server certificates: one with RSA and one with EC key types.
+        // Create CA and server certificates.
+        // One server certificate with RSA and one with EC key type.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
         Credential serverRsaCreds = new Credential().subject("CN=rsa").issuer(serverCaCreds).keyType(KeyType.RSA);
         Credential serverEcCreds = new Credential().subject("CN=ec").issuer(serverCaCreds).keyType(KeyType.EC);
@@ -233,9 +250,9 @@ public class TestReloadingKeyStoreWithTls {
         TrustManagerFactory tmfClient = TlsTester.createTrustManagerFactory(tempDir, serverCaCreds);
 
         // Create TLS connection by only offering cipher that forces server to select RSA certificate.
+        // Check that the client received the RSA server certificate.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = new TlsTester.Client(null, tmfClient.getTrustManagers())
-                    .protocols(new String[] { "TLSv1.2" })
                     .ciphers(new String[] { "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384" })
                     .connect(server)
                     .getServerCertificate();
@@ -243,9 +260,9 @@ public class TestReloadingKeyStoreWithTls {
         }
 
         // Create TLS connection by only offering cipher that forces server to select EC certificate.
+        // Check that the client received the EC server certificate.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = new TlsTester.Client(null, tmfClient.getTrustManagers())
-                    .protocols(new String[] { "TLSv1.2" })
                     .ciphers(new String[] { "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384" })
                     .connect(server)
                     .getServerCertificate();
@@ -271,22 +288,26 @@ public class TestReloadingKeyStoreWithTls {
         KeyManagerFactory kmfClient = TlsTester.createKeyManagerFactory(tempDir, clientRsaCreds, clientEcCreds);
         TrustManagerFactory tmfClient = TlsTester.createTrustManagerFactory(tempDir, serverCaCreds);
 
-        // Create server that only offers RSA cipher and forces client to select RSA certificate.
+        // Create server that only offers RSA cipher.
+        // Check that the server received EC client certificate.
+        //
+        // Note:
+        // JSSE sends hardcoded list of accepted ClientCertificateTypes in CertificateRequest message.
+        // It will always accept EC certificates, regardless of offered and selected ciphers.
         try (TlsTester.Server server = new TlsTester.Server(kmfServer.getKeyManagers(), tmfServer.getTrustManagers())) {
-            server.ciphers(new String[] { "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384" })
-                    .protocols(new String[] { "TLSv1.2" });
+            server.ciphers(new String[] { "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384" });
             Certificate[] gotServerCerts = TlsTester
-                    .connect(server, kmfClient.getKeyManagers(), tmfClient.getTrustManagers())
-                    .getServerCertificate();
+                    .connect(server, kmfClient.getKeyManagers(), tmfClient.getTrustManagers()).getServerCertificate();
             assertArrayEquals(serverRsaCreds.getCertificates(), gotServerCerts);
-            // TODO: EC key gets selected
-            //       assertArrayEquals(clientRsaCreds.getCertificates(), server.getClientCertificates());
+
+            assertArrayEquals(clientEcCreds.getCertificates(), server.getClientCertificates());
         }
 
         // Create server that only offers EC cipher and forces client to select EC certificate.
+        // Check that the client received EC server certificate.
+        // Check that the server received EC client certificate.
         try (TlsTester.Server server = new TlsTester.Server(kmfServer.getKeyManagers(), tmfServer.getTrustManagers())) {
-            server.ciphers(new String[] { "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384" })
-                    .protocols(new String[] { "TLSv1.2" });
+            server.ciphers(new String[] { "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384" });
             Certificate[] gotServerCerts = TlsTester
                     .connect(server, kmfClient.getKeyManagers(), tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -302,6 +323,7 @@ public class TestReloadingKeyStoreWithTls {
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
         Credential serverCreds = new Credential().subject("CN=server").issuer(serverCaCreds);
 
+        // Create two client CAs and client certificates under both CAs.
         Credential clientCa1Creds = new Credential().subject("CN=client-ca-1");
         Credential clientCa2Creds = new Credential().subject("CN=client-ca-2");
         Credential client1Creds = new Credential().subject("CN=client-1").issuer(clientCa1Creds);
@@ -311,7 +333,9 @@ public class TestReloadingKeyStoreWithTls {
         TrustManagerFactory tmfClient = TlsTester.createTrustManagerFactory(tempDir, serverCaCreds);
         KeyManagerFactory kmfClient = TlsTester.createKeyManagerFactory(tempDir, client1Creds, client2Creds);
 
-        // Create TLS connection when server has client-ca-1 as trust anchor for client cert auth.
+        // Create TLS connection when server has client-ca-1 configured as trust anchor.
+        // Check that the client received server certificate.
+        // Check that the server received client certificate issued under client-ca-1.
         try (TlsTester.Server server = TlsTester.serverWithMutualAuth(
                 kmfServer.getKeyManagers(),
                 TlsTester.createTrustManagerFactory(tempDir, clientCa1Creds).getTrustManagers())) {
@@ -324,7 +348,9 @@ public class TestReloadingKeyStoreWithTls {
             assertArrayEquals(client1Creds.getCertificates(), gotClientCerts);
         }
 
-        // Create TLS connection when server has client-ca-2 as trust anchor for client cert auth.
+        // Create TLS connection when server has client-ca-2 configured as trust anchor.
+        // Check that the client received server certificate.
+        // Check that the server received client certificate issued under client-ca-2.
         try (TlsTester.Server server = TlsTester.serverWithMutualAuth(
                 kmfServer.getKeyManagers(),
                 TlsTester.createTrustManagerFactory(tempDir, clientCa2Creds).getTrustManagers())) {
@@ -349,6 +375,7 @@ public class TestReloadingKeyStoreWithTls {
         Credential serverBarCreds = new Credential().subject("CN=bar.com").issuer(serverCaCreds);
 
         // Create keystore files.
+        // Use different key entry passwords for foo.com and bar.com server certificates.
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
         ks.setKeyEntry("foo", serverFooCreds.getPrivateKey(), "password foo".toCharArray(),
@@ -357,25 +384,28 @@ public class TestReloadingKeyStoreWithTls {
                 serverBarCreds.getCertificates());
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
+        // Create truststore file.
         KeyStore ts = KeyStore.getInstance("PKCS12");
         ts.load(null, null);
         ts.setCertificateEntry("trusted", serverCaCreds.getCertificate());
         ts.store(Files.newOutputStream(tsPath), "secret".toCharArray());
 
         // Create KeyManager for server.
+        // Provide correct passwords for each alias.
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
         Map<String, char[]> aliasPasswords = new HashMap<>();
         aliasPasswords.put("foo", "password foo".toCharArray());
         aliasPasswords.put("bar", "password bar".toCharArray());
-        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", ksPath,
-                "secret", aliasPasswords)));
+        kmfServer.init(new KeyStoreBuilderParameters(
+            ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret", aliasPasswords)));
 
         // Create TrustManager for client.
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
-        tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", "SunJSSE", tsPath,
-                "secret").getKeyStore());
+        tmfClient.init(
+            ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", tsPath, "secret").getKeyStore());
 
         // Create TLS connection with SNI servername: foo.com.
+        // Check that client receives server certificate for foo.com.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connectWithSni(server, "foo.com", tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -383,6 +413,7 @@ public class TestReloadingKeyStoreWithTls {
         }
 
         // Create TLS connection with SNI servername: bar.com.
+        // Check that client receives server certificate for bar.com.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             Certificate[] gotServerCerts = TlsTester.connectWithSni(server, "bar.com", tmfClient.getTrustManagers())
                     .getServerCertificate();
@@ -402,8 +433,51 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testInvalidEntryPassword() {
-        // TODO: error is not propagated for some reason.
+    void testInvalidKeyEntryPassword(@TempDir Path tempDir) throws Exception {
+        Path ksPath = tempDir.resolve("server.p12");
+        Path tsPath = tempDir.resolve("trusted.p12");
+
+        // Create CA and server certificate.
+        Credential caCreds = new Credential().subject("CN=ca");
+        Credential serverCreds = new Credential().subject("CN=server").issuer(caCreds);
+
+        // Create keystore files.
+        // Use key entry password "correct-entry-password" which is different than the keystore password "secret".
+        KeyStore ks = KeyStore.getInstance("PKCS12");
+        ks.load(null, null);
+        ks.setKeyEntry("server", serverCreds.getPrivateKey(), "correct-entry-password".toCharArray(),
+                serverCreds.getCertificates());
+        ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
+
+        // Create truststore file.
+        KeyStore ts = KeyStore.getInstance("PKCS12");
+        ts.load(null, null);
+        ts.setCertificateEntry("trusted", caCreds.getCertificate());
+        ts.store(Files.newOutputStream(tsPath), "secret".toCharArray());
+
+        // Create KeyManager for server.
+        // Do not provide correct passwords for aliases.
+        KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
+        kmfServer.init(
+                new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret")));
+
+        // Create TrustManager for client.
+        TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
+        tmfClient.init(
+            ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", tsPath, "secret").getKeyStore());
+
+        // Create TLS connection.
+        // The connection will fail: the server certificate cannot be fetched from KeyStore since we provide wrong password.
+        //
+        // Note:
+        // Neither server or client socket will raise an exception that could be easily traced to invalid
+        // keystore entry password:
+        //   - In case of server: X509KeyManager.getEntry() hides the error by ignoring the.
+        //   - In case of client: client fails during TLS handshake since no common ciphers (since server has not certificates)
+        // To help troubleshooting, DelegatingKeyStoreSpi.engineGetKey() will catch the exception and print an error.
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
+            assertThrows(SSLHandshakeException.class, () -> TlsTester.connect(server, tmfClient.getTrustManagers()));
+        }
     }
 
     @Test
@@ -416,9 +490,8 @@ public class TestReloadingKeyStoreWithTls {
         // TODO
     }
 
-
     @Test
-    void testFallbackClientCertificateSelection(@TempDir Path tempDir) throws Exception {
+    void testFallbackClientCertificateSelection() throws Exception {
         // TODO
     }
 }

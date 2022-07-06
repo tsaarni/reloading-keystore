@@ -21,8 +21,6 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.KeyStoreSpi;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.Provider;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.util.HashMap;
@@ -41,9 +39,10 @@ public class ReloadingKeyStore extends KeyStore {
 
     private static final Logger log = LoggerFactory.getLogger(ReloadingKeyStore.class);
 
-    protected ReloadingKeyStore(KeyStoreSpi keyStoreSpi, Provider provider, String type)
+    protected ReloadingKeyStore(KeyStoreSpi keyStoreSpi)
             throws NoSuchAlgorithmException, CertificateException, IOException {
-        super(keyStoreSpi, provider, type);
+
+        super(keyStoreSpi, null, "ReloadingKeyStore");
 
         // Calling load(), even with null arguments, will initialize the KeyStore to expected state.
         load(null, null);
@@ -117,34 +116,30 @@ public class ReloadingKeyStore extends KeyStore {
          * Creates KeyStore builder for given PKCS#12 or JKS file.
          *
          * @param type KeyStore type such as {@code "PKCS12"} or {@code "JKS"}.
-         * @param provider KeyStore provider such as {@code "SunJSSE"}.
          * @param path Path to the keystore file.
          * @param password Password used to decrypt the KeyStore.
          * @return The KeyStore builder.
          */
-        public static KeyStore.Builder fromKeyStoreFile(String type, String provider, Path path, String password)
+        public static KeyStore.Builder fromKeyStoreFile(String type, Path path, String password)
                 throws NoSuchAlgorithmException, CertificateException, KeyStoreException,
-                NoSuchProviderException, IOException {
-            return new Builder(new ReloadingKeyStore(new ReloadingKeyStoreFileSpi(type, provider, path, password), null,
-                    "ReloadingKeyStore"), password.toCharArray());
+                IOException {
+            return new Builder(new ReloadingKeyStore(new ReloadingKeyStoreFileSpi(type, path, password)), password.toCharArray());
         }
 
         /**
          * Creates KeyStore builder for given PKCS#12 or JKS file.
          *
          * @param type KeyStore type such as {@code "PKCS12"} or {@code "JKS"}.
-         * @param provider KeyStore provider such as {@code "SunJSSE"}.
          * @param path Path to the keystore file.
          * @param password Password used to decrypt the KeyStore.
          * @param aliasPasswords Passwords used to decrypt keystore entries. Map of: alias (key), password (value).
          * @return The KeyStore builder.
          */
-        public static KeyStore.Builder fromKeyStoreFile(String type, String provider, Path path, String password,
+        public static KeyStore.Builder fromKeyStoreFile(String type, Path path, String password,
                 Map<String, char[]> aliasPasswords)
-                throws NoSuchAlgorithmException, CertificateException, KeyStoreException,
-                NoSuchProviderException, IOException {
-            return new Builder(new ReloadingKeyStore(new ReloadingKeyStoreFileSpi(type, provider, path, password), null,
-                    "ReloadingKeyStore"), password.toCharArray(), aliasPasswords);
+                throws NoSuchAlgorithmException, CertificateException, KeyStoreException, IOException {
+            return new Builder(new ReloadingKeyStore(new ReloadingKeyStoreFileSpi(type, path, password)),
+                    password.toCharArray(), aliasPasswords);
         }
 
         /**
@@ -175,8 +170,7 @@ public class ReloadingKeyStore extends KeyStore {
                 spi.addKeyEntry(cpi.next(), kpi.next());
             }
 
-            return new Builder(new ReloadingKeyStore(spi, null, "ReloadingKeyStore"),
-                    ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD);
+            return new Builder(new ReloadingKeyStore(spi), ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD);
         }
 
         /**
@@ -192,8 +186,7 @@ public class ReloadingKeyStore extends KeyStore {
 
             ReloadingPemFileKeyStoreSpi spi = new ReloadingPemFileKeyStoreSpi();
             spi.addKeyEntry(cert, key);
-            return new Builder(new ReloadingKeyStore(spi, null, "ReloadingKeyStore"),
-                    ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD);
+            return new Builder(new ReloadingKeyStore(spi), ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD);
         }
 
         /**
@@ -209,8 +202,7 @@ public class ReloadingKeyStore extends KeyStore {
             for (Path c : cert) {
                 spi.addCertificateEntry(c);
             }
-            return new Builder(new ReloadingKeyStore(spi, null, "ReloadingKeyStore"),
-                    ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD);
+            return new Builder(new ReloadingKeyStore(spi), ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD);
         }
     }
 

@@ -15,19 +15,23 @@
  */
 package keystore_tutorial;
 
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import fi.protonode.certy.Credential;
-import fi.protonode.certy.Credential.KeyType;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.nio.file.Path;
 import java.security.PrivateKey;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import fi.protonode.certy.Credential;
+import fi.protonode.certy.Credential.KeyType;
+
+/**
+ * Decode certificates and private keys from PEM files.
+ */
 public class TestPemCredentialFactory {
 
     @Test

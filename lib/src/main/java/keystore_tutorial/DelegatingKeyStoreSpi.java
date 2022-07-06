@@ -26,6 +26,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
+import java.security.spec.InvalidKeySpecException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -40,7 +41,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * {@code KeyStoreSpi} that delegates calls to another instance of {@code KeyStore}.
+ * Implementation of {@code KeyStoreSpi} that delegates calls to an instance of {@code KeyStore}.
  * The delegate keystore can be replaced on demand when the underlying certificate(s) and key(s) change.
  */
 public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
@@ -58,7 +59,8 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
     /**
      * Reloads the delegate KeyStore if the underlying files have changed on disk.
      */
-    abstract void refresh() throws Exception;
+    abstract void refresh() throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException,
+            InvalidKeySpecException;
 
     /**
      * Calls {@link #refresh()} to refresh the cached KeyStore and if more than
@@ -77,7 +79,8 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         try {
             refresh();
         } catch (Exception e) {
-            log.debug("Failed to refresh: ", e);
+            log.debug("Failed to refresh:", e);
+            e.printStackTrace();
         }
     }
 
@@ -87,54 +90,66 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
      * @param delegate KeyStore instance that becomes the delegate.
      */
     void setKeyStoreDelegate(KeyStore delegate) {
-        log.debug("New KeyStore delegate set");
+        log.debug("Setting new KeyStore delegate");
         this.delegate.set(new Delegate(delegate));
     }
 
     @Override
     public Key engineGetKey(String alias, char[] password) throws NoSuchAlgorithmException, UnrecoverableKeyException {
-        log.debug("engineGetKey()");
         refreshCachedKeyStore();
+
         try {
+            log.debug("engineGetKey(alias={}, password={})", alias, password != null ? "<masked>" : "<null>");
             return delegate.get().keyStore.getKey(alias, password);
         } catch (KeyStoreException e) {
             log.error("getKey() failed", e);
             return null;
+        } catch (UnrecoverableKeyException e) {
+            // The exception is thrown when given keystore entry password was incorrect.
+            // X509KeyManager.getEntry() hides the error by catching and ignoring the exception.
+            // To help troubleshooting, we catch the exception here and print loud error.
+            log.error("getKey() failed", e);
+            e.printStackTrace();
+            throw e;
         }
     }
 
     @Override
     public Certificate[] engineGetCertificateChain(String alias) {
-        log.debug("engineGetCertificateChain()");
         refreshCachedKeyStore();
+
         try {
+            log.debug("engineGetCertificateChain(alias={})", alias);
             return delegate.get().keyStore.getCertificateChain(alias);
         } catch (KeyStoreException e) {
-            log.error("getCertificateChain() failed ", e);
+            log.error("getCertificateChain() failed:", e);
             return new Certificate[0];
         }
     }
 
     @Override
     public Certificate engineGetCertificate(String alias) {
-        log.debug("engineGetCertificate()");
         refreshCachedKeyStore();
+
         try {
+            log.debug("engineGetCertificate(alias={})", alias);
             return delegate.get().keyStore.getCertificate(alias);
         } catch (KeyStoreException e) {
-            log.error("getCertificate() failed ", e);
+            log.error("getCertificate() failed:", e);
             return null;
         }
     }
 
     @Override
     public Date engineGetCreationDate(String alias) {
-        log.debug("engineGetCreationDate()");
         refreshCachedKeyStore();
+
         try {
-            return delegate.get().keyStore.getCreationDate(alias);
+            Date result = delegate.get().keyStore.getCreationDate(alias);
+            log.debug("engineGetCreationDate(alias={}) -> {}", alias, result);
+            return result;
         } catch (KeyStoreException e) {
-            log.error("getCreationDate() failed ", e);
+            log.error("getCreationDate() failed:", e);
             return null;
         }
     }
@@ -147,67 +162,78 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
      */
     @Override
     public Enumeration<String> engineAliases() {
-        log.debug("engineAliases()");
         refreshCachedKeyStore();
+
+        log.debug("engineAliases() -> {}", delegate.get().sortedAliases);
         return Collections.enumeration(new ArrayList<>(delegate.get().sortedAliases));
     }
 
     @Override
     public boolean engineContainsAlias(String alias) {
-        log.debug("engineContainsAlias({})", alias);
         refreshCachedKeyStore();
+
         try {
-            return delegate.get().keyStore.containsAlias(alias);
+            boolean result = delegate.get().keyStore.containsAlias(alias);
+            log.debug("engineContainsAlias(alias={}) -> {}", alias, result);
+            return result;
         } catch (KeyStoreException e) {
-            log.error("containsAlias() failed) ", e);
+            log.error("containsAlias() failed:", e);
             return false;
         }
     }
 
     @Override
     public int engineSize() {
-        log.debug("engineSize()");
         refreshCachedKeyStore();
+
         try {
-            return delegate.get().keyStore.size();
+            int result = delegate.get().keyStore.size();
+            log.debug("engineSize() -> {}", result);
+            return result;
         } catch (KeyStoreException e) {
-            log.error("size() failed ", e);
+            log.error("size() failed:", e);
             return 0;
         }
     }
 
     @Override
     public boolean engineIsKeyEntry(String alias) {
-        log.debug("engineIsKeyEntry()");
         refreshCachedKeyStore();
+
         try {
-            return delegate.get().keyStore.isKeyEntry(alias);
+            boolean result = delegate.get().keyStore.isKeyEntry(alias);
+            log.debug("engineIsKeyEntry(alias={}) -> {}", alias, result);
+            return result;
         } catch (KeyStoreException e) {
-            log.error("isKeyEntry() failed", e);
+            log.error("isKeyEntry() failed:", e);
             return false;
         }
     }
 
     @Override
     public boolean engineIsCertificateEntry(String alias) {
-        log.debug("engineIsCertificateEntry({})", alias);
         refreshCachedKeyStore();
+
         try {
-            return delegate.get().keyStore.isCertificateEntry(alias);
+            boolean result = delegate.get().keyStore.isCertificateEntry(alias);
+            log.debug("engineIsCertificateEntry(alias={}) -> {}", alias, result);
+            return result;
         } catch (KeyStoreException e) {
-            log.error("isCertificateEntry() failed ", e);
+            log.error("isCertificateEntry() failed;", e);
             return false;
         }
     }
 
     @Override
     public String engineGetCertificateAlias(Certificate cert) {
-        log.debug("engineGetCertificateAlias()");
         refreshCachedKeyStore();
+
         try {
-            return delegate.get().keyStore.getCertificateAlias(cert);
+            String result = delegate.get().keyStore.getCertificateAlias(cert);
+            log.debug("engineGetCertificateAlias() -> {}", result);
+            return result;
         } catch (KeyStoreException e) {
-            log.error("getCertificateAlias() failed", e);
+            log.error("getCertificateAlias() failed:", e);
             return null;
         }
     }
@@ -261,7 +287,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
                 Collections.sort(sortedAliases);
             } catch (KeyStoreException e) {
                 // Ignore exception.
-                log.error("Failed getting aliases: ", e);
+                log.error("Failed getting aliases:", e);
             }
         }
     }
