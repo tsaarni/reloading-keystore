@@ -73,7 +73,7 @@ public class TlsTester {
         private static final Logger log = LoggerFactory.getLogger(Server.class);
 
         private final String host = "localhost";
-        private final int port = 18040;
+        private final int preferredPort = 18040; // Used port may be different if preferred port is not free.
         private ExecutorService executor = Executors.newSingleThreadExecutor();
         private final SSLContext ctx = SSLContext.getInstance("TLS");
         private SSLServerSocket socket;
@@ -91,8 +91,16 @@ public class TlsTester {
 
             ctx.init(kms, tms, null);
             SSLServerSocketFactory ssf = ctx.getServerSocketFactory();
-            log.debug("Server socket bound to {}:{}", host, port);
-            socket = (SSLServerSocket) ssf.createServerSocket(port, 1, InetAddress.getByName(host));
+
+            // Prefer given port but use any free port to allow parallel tests to run.
+            try {
+                log.debug("Binding server socket to {}:{}", host, preferredPort);
+                socket = (SSLServerSocket) ssf.createServerSocket(preferredPort, 1, InetAddress.getByName(host));
+            } catch (IOException e) {
+                log.debug("Binding server socket to {}:{} failed: {}", host, preferredPort, e.getMessage());
+                socket = (SSLServerSocket) ssf.createServerSocket(0, 1, InetAddress.getByName(host));
+                log.debug("Bound random free server port {}:{}", host, socket.getLocalPort());
+            }
 
             // Since TLSv1.3 uses encrypted handshake, using Wireshark becomes bit more tricky. Therefore use TLSv1.2 in
             // the tests, for observability reasons.
@@ -170,7 +178,7 @@ public class TlsTester {
         }
 
         public int getPort() {
-            return port;
+            return socket.getLocalPort();
         }
 
         public String getHost() {
