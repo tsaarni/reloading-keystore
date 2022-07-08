@@ -18,7 +18,7 @@ package keystore_tutorial;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.net.SocketException;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
@@ -369,7 +369,7 @@ public class TestReloadingKeyStoreWithTls {
                 TlsTester.createTrustManagerFactory(tempDir, clientCa1Creds).getTrustManagers())) {
 
             // Client will be unable to connect the server.
-            assertThrows(SocketException.class,
+            assertThrows(IOException.class,
                     () -> TlsTester.connect(server, kmfUntrustedClient.getKeyManagers(), tmfClient.getTrustManagers()));
 
             // Since client could not pick certificate according to server's preferred authorities, it sends nothing.
