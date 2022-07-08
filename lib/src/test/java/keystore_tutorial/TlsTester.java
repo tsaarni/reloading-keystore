@@ -98,6 +98,9 @@ public class TlsTester {
             // the tests, for observability reasons.
             socket.setEnabledProtocols(new String[] { "TLSv1.2" });
 
+            // Try to avoid getting stuck in TIME_WAIT in test cases.
+            socket.setReuseAddress(true);
+
             // Enable client authentication if TrustManager(s) are given.
             clientAuth(tms != null);
 
