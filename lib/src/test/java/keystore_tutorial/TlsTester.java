@@ -19,6 +19,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -93,8 +94,8 @@ public class TlsTester {
             log.debug("Server socket bound to {}:{}", host, port);
             socket = (SSLServerSocket) ssf.createServerSocket(port, 1, InetAddress.getByName(host));
 
-            // Since TLSv1.3 uses encrypted handshake, using Wireshark becomes bit more tricky.
-            // Therefore use TLSv1.2 in the tests, for observability reasons.
+            // Since TLSv1.3 uses encrypted handshake, using Wireshark becomes bit more tricky. Therefore use TLSv1.2 in
+            // the tests, for observability reasons.
             socket.setEnabledProtocols(new String[] { "TLSv1.2" });
 
             // Enable client authentication if TrustManager(s) are given.
@@ -141,20 +142,26 @@ public class TlsTester {
         @Override
         public void run() {
             // Wait for client to connect.
-            log.debug("Listening for client to connect...");
-            try (SSLSocket client = (SSLSocket) socket.accept()) {
-                // Execute TLS handshake.
-                log.debug("Client connected: executing TLS handshake");
-                client.startHandshake();
+            while (true) {
+                log.debug("Listening for client to connect...");
+                try (SSLSocket client = (SSLSocket) socket.accept()) {
+                    // Execute TLS handshake.
+                    log.debug("Client connected: executing TLS handshake");
+                    client.startHandshake();
 
-                // Pass the client credentials to main thread if client authentication was enabled.
-                if (clientAuthentication) {
-                    SSLSession sess = client.getSession();
-                    clientCertificates.complete(sess.getPeerCertificates());
+                    // Pass the client credentials to main thread if client authentication was enabled.
+                    if (clientAuthentication) {
+                        SSLSession sess = client.getSession();
+                        clientCertificates.complete(sess.getPeerCertificates());
+                    }
+                } catch (SocketException e) {
+                    // Socket closed.
+                    log.debug("Socket: {}", e.getMessage());
+                    break;
+                } catch (Exception e) {
+                    log.error("Received exception:", e);
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
-                log.error("Received exception:", e);
-                e.printStackTrace();
             }
             log.debug("Server exiting");
         }
@@ -168,9 +175,8 @@ public class TlsTester {
         }
 
         /**
-         * Returns the client certificates that were used to connect the server.
-         * If client authentication was not used, times out in two seconds and raises an exception.
-         * Can be called in main thread.
+         * Returns the client certificates that were used to connect the server. If client authentication was not used,
+         * times out in two seconds and raises an exception. Can be called in main thread.
          */
         public Certificate[] getClientCertificates()
                 throws InterruptedException, ExecutionException, SSLPeerUnverifiedException {
@@ -277,8 +283,7 @@ public class TlsTester {
     }
 
     /**
-     * Creates client that connects to the server using server authentication only,
-     * sends server name in SNI extension.
+     * Creates client that connects to the server using server authentication only, sends server name in SNI extension.
      */
     public static Client connectWithSni(Server server, String serverName, TrustManager[] tms)
             throws KeyManagementException, UnknownHostException, NoSuchAlgorithmException, IOException {
@@ -329,7 +334,7 @@ public class TlsTester {
         ks.store(Files.newOutputStream(ksPath), "".toCharArray());
 
         // Load the keystore from disk with ReloadingKeyStore and construct TrustManagerFactory for it.
-        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm()); // algorithm=PKIX
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmf.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "").getKeyStore());
 
         return tmf;

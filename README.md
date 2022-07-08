@@ -84,3 +84,8 @@ Check [here](https://tsaarni.github.io/java-keystore-tutorial) to see the full A
 #### Overview of the implementation
 
 > TODO: description about the to be written.
+
+
+# References
+
+* https://tersesystems.com/blog/2018/09/08/keymanagers-and-keystores/

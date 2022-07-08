@@ -30,6 +30,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
@@ -126,11 +127,19 @@ public class TestReloadingKeyStore {
         Path certPath = tempDir.resolve("server.pem");
         Path keyPath = tempDir.resolve("server-key.pem");
 
-        Instant before = Instant.parse("2022-01-01T13:00:00Z");
-        Instant after = Instant.parse("2022-01-01T13:00:01Z"); // Cache TTL expires 1 second later.
+        // Time instants
+        //  - before: file was created.
+        //  - after: cache TTL has expired and it will be checked again if file has been modified.
+        Instant before = Instant.now();
+        Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
 
-        try (MockedStatic<Instant> mockedStatic = mockStatic(Instant.class, Mockito.CALLS_REAL_METHODS)) {
-            mockedStatic.when(() -> Instant.now()).thenReturn(before);
+        // Inject mocked clock to control time.
+        Clock originalClock = DelegatingKeyStoreSpi.now;
+        DelegatingKeyStoreSpi.now = Mockito.mock(Clock.class);
+
+        try (MockedStatic<Instant> mockedInstant = mockStatic(Instant.class, Mockito.CALLS_REAL_METHODS)) {
+            // Configure clock to return the initial time instant.
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(before);
 
             // Write initial versions of the PEMs to the disk.
             Credential credBeforeUpdate = new Credential().subject("CN=server").writeCertificateAsPem(certPath)
@@ -152,23 +161,35 @@ public class TestReloadingKeyStore {
             assertArrayEquals(credBeforeUpdate.getCertificates(), ks.getCertificateChain("0000"));
             assertEquals(credBeforeUpdate.getPrivateKey(), ks.getKey("0000", null));
 
-            // Advance time to expire cache TTL.
-            mockedStatic.when(() -> Instant.now()).thenReturn(after);
+            // Configure clock to return different time to expire cache TTL.
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(after);
 
             // Check that PEM files are reloaded from disk after cache TTL expired.
             assertArrayEquals(credAfterUpdate.getCertificates(), ks.getCertificateChain("0000"));
             assertEquals(credAfterUpdate.getPrivateKey(), ks.getKey("0000", null));
+        } finally {
+            // Restore original clock back.
+            DelegatingKeyStoreSpi.now = originalClock;
         }
     }
 
     @Test
     void testKeyStoreHotReload(@TempDir Path tempDir) throws Exception {
         Path ksPath = tempDir.resolve("keystore.p12");
-        Instant before = Instant.parse("2022-01-01T13:00:00Z");
-        Instant after = Instant.parse("2022-01-01T13:00:01Z"); // Cache TTL expires 1 second later.
 
-        try (MockedStatic<Instant> mockedStatic = mockStatic(Instant.class, Mockito.CALLS_REAL_METHODS)) {
-            mockedStatic.when(() -> Instant.now()).thenReturn(before);
+        // Time instants
+        //  - before: file was created.
+        //  - after: cache TTL has expired and it will be checked again if file has been modified.
+        Instant before = Instant.now();
+        Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
+
+        // Inject mocked clock to control time.
+        Clock originalClock = DelegatingKeyStoreSpi.now;
+        DelegatingKeyStoreSpi.now = Mockito.mock(Clock.class);
+
+        try (MockedStatic<Instant> mockedInstant = mockStatic(Instant.class, Mockito.CALLS_REAL_METHODS)) {
+            // Configure clock to return the initial time instant.
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(before);
 
             // Write initial versions of the keystore to the disk.
             Credential credBeforeUpdate = new Credential().subject("CN=joe");
@@ -197,13 +218,17 @@ public class TestReloadingKeyStore {
             assertArrayEquals(credBeforeUpdate.getCertificates(), gotKs.getCertificateChain("cred"));
             assertEquals(credBeforeUpdate.getPrivateKey(), gotKs.getKey("cred", null));
 
-            // Advance time to expire cache TTL.
-            mockedStatic.when(() -> Instant.now()).thenReturn(after);
+            // Configure clock to return different time to expire cache TTL.
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(after);
 
             // Check that keystore was reloaded from disk after cache TTL expired.
             assertArrayEquals(credAfterUpdate.getCertificates(), gotKs.getCertificateChain("cred"));
             assertEquals(credAfterUpdate.getPrivateKey(), gotKs.getKey("cred", null));
+        } finally {
+            // Restore original clock back.
+            DelegatingKeyStoreSpi.now = originalClock;
         }
+
     }
 
     @Test

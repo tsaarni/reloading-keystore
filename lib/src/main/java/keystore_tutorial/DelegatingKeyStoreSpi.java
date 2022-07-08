@@ -27,6 +27,7 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -48,8 +49,11 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
 
     private static final Logger log = LoggerFactory.getLogger(DelegatingKeyStoreSpi.class);
 
+    // Use Clock instance instead of Instant.now(). This allows mocked clock to be injected from test cases(s).
+    static Clock now = Clock.systemUTC();
+
     // Defines how often the delegate keystore should be checked for updates.
-    private static final Duration CACHE_TTL = Duration.of(1, ChronoUnit.SECONDS);
+    static final Duration CACHE_TTL = Duration.of(1, ChronoUnit.SECONDS);
 
     private AtomicReference<Delegate> delegate = new AtomicReference<>();
 
@@ -69,12 +73,12 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
      */
     private void refreshCachedKeyStore() {
         // Return if not enough time has passed for the delegate KeyStore to be refreshed.
-        if (Instant.now().isBefore(cacheExpiredTime)) {
+        if (now.instant().isBefore(cacheExpiredTime)) {
             return;
         }
 
         // Set the time when refresh should be checked next.
-        cacheExpiredTime = Instant.now().plus(CACHE_TTL);
+        cacheExpiredTime = now.instant().plus(CACHE_TTL);
 
         try {
             refresh();
@@ -105,9 +109,9 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
             log.error("getKey() failed", e);
             return null;
         } catch (UnrecoverableKeyException e) {
-            // The exception is thrown when given keystore entry password was incorrect.
-            // X509KeyManager.getEntry() hides the error by catching and ignoring the exception.
-            // To help troubleshooting, we catch the exception here and print loud error.
+            // UnrecoverableKeyException is thrown when given password for keystore entry was incorrect.
+            // JSSE X509KeyManagerImpl.getEntry() unfortunately hides the error by catching and ignoring the exception.
+            // To help troubleshooting, we catch the exception here as well and print the error.
             log.error("getKey() failed", e);
             e.printStackTrace();
             throw e;

@@ -98,9 +98,15 @@ public class ReloadingKeyStore extends KeyStore {
                 return protection;
             }
 
-            // TODO: JDK17 does not use prefix anymore. In that case, no parsing is needed.
-
-            // Parse plain alias from NewSunS509 KeyManager prefixed alias.
+            // Certain Java versions pass alias in a format to getProtectionParameter(), which was meant to be internal
+            // to NewSunX509 X509KeyManagerImpl. This was fixed in JDK17.
+            //
+            //   X509KeyManagerImpl calls getProtectionParameter with incorrect alias
+            //   https://bugs.openjdk.org/browse/JDK-8264554
+            //   https://github.com/openjdk/jdk/pull/3326
+            //
+            // For compatibility also with older versions, parse the plain alias from NewSunX509 KeyManager internal
+            // (prefixed) alias.
             // https://github.com/openjdk/jdk/blob/6e55a72f25f7273e3a8a19e0b9a97669b84808e9/src/java.base/share/classes/sun/security/ssl/X509KeyManagerImpl.java#L237-L265
             Objects.requireNonNull(alias);
             int firstDot = alias.indexOf('.');
