@@ -62,6 +62,8 @@ import fi.protonode.certy.Credential;
 
 public class TlsTester {
 
+    private static final Logger log = LoggerFactory.getLogger(TlsTester.class);
+
     private TlsTester() {
     }
 
@@ -92,7 +94,7 @@ public class TlsTester {
             ctx.init(kms, tms, null);
             SSLServerSocketFactory ssf = ctx.getServerSocketFactory();
 
-            // Prefer given port but use any free port to allow parallel tests to run.
+            // Prefer given port, if that fails use any free port.
             try {
                 log.debug("Binding server socket to {}:{}", host, preferredPort);
                 socket = (SSLServerSocket) ssf.createServerSocket(preferredPort, 1, InetAddress.getByName(host));
@@ -317,6 +319,7 @@ public class TlsTester {
 
         // Store keystore to disk.
         Path ksPath = tempDir.resolve(ks.toString());
+        log.debug("Writing keystore: {}", ksPath);
         ks.store(Files.newOutputStream(ksPath), "".toCharArray());
 
         // Load the keystore from disk with ReloadingKeyStore and construct KeyManagerFactory for it.
@@ -342,6 +345,7 @@ public class TlsTester {
 
         // Store keystore to disk.
         Path ksPath = tempDir.resolve(ks.toString());
+        log.debug("Writing truststore: {}", ksPath);
         ks.store(Files.newOutputStream(ksPath), "".toCharArray());
 
         // Load the keystore from disk with ReloadingKeyStore and construct TrustManagerFactory for it.

@@ -128,8 +128,8 @@ public class TestReloadingKeyStore {
         Path keyPath = tempDir.resolve("server-key.pem");
 
         // Time instants
-        //  - before: file was created.
-        //  - after: cache TTL has expired and it will be checked again if file has been modified.
+        // - before: PEM files were created.
+        // - after: cache TTL has expired and PEM files will be checked for modification.
         Instant before = Instant.now();
         Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
 
@@ -178,8 +178,8 @@ public class TestReloadingKeyStore {
         Path ksPath = tempDir.resolve("keystore.p12");
 
         // Time instants
-        //  - before: file was created.
-        //  - after: cache TTL has expired and it will be checked again if file has been modified.
+        // - before: keystore file was created.
+        // - after: cache TTL has expired and keystore file will be checked for modification.
         Instant before = Instant.now();
         Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
 

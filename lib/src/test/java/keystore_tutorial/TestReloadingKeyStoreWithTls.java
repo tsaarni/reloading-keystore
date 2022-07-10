@@ -38,6 +38,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.Mockito;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import fi.protonode.certy.Credential;
 import fi.protonode.certy.Credential.KeyType;
@@ -46,6 +48,8 @@ import fi.protonode.certy.Credential.KeyType;
  * Use ReloadingKeyStore together with KeyManager, TrustManager and SSLContext.
  */
 public class TestReloadingKeyStoreWithTls {
+
+    private static final Logger log = LoggerFactory.getLogger(TestReloadingKeyStoreWithTls.class);
 
     @BeforeAll
     static void enableJavaLogs() {
@@ -62,23 +66,27 @@ public class TestReloadingKeyStoreWithTls {
         Credential caCreds = new Credential().subject("CN=ca");
         Credential serverCreds = new Credential().subject("CN=server").issuer(caCreds);
 
-        // Create keystore files.
+        // Create keystores.
+        log.debug("Writing keystore: {}", ksPath);
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
         ks.setKeyEntry("server", serverCreds.getPrivateKey(), "secret".toCharArray(), serverCreds.getCertificates());
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
+        log.debug("Writing truststore: {}", tsPath);
         KeyStore ts = KeyStore.getInstance("PKCS12");
         ts.load(null, null);
         ts.setCertificateEntry("trusted", caCreds.getCertificate());
         ts.store(Files.newOutputStream(tsPath), "secret".toCharArray());
 
         // Create KeyManager for server.
+        log.debug("Initializing KeyManager for: {}", ksPath);
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
         kmfServer.init(
                 new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret")));
 
         // Create TrustManager for client (default algorithm=PKIX).
+        log.debug("Initializing TrustManager for: {}", tsPath);
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmfClient.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", tsPath, "secret").getKeyStore());
 
@@ -98,15 +106,18 @@ public class TestReloadingKeyStoreWithTls {
         Path serverKeyPem = tempDir.resolve("server-key.pem");
 
         // Create CAs and server certificate.
+        log.debug("Writing PEM files: {}, {}, {}", serverCaCertPem, serverCertPem, serverKeyPem);
         Credential serverCaCreds = new Credential().subject("CN=server-ca").writeCertificateAsPem(serverCaCertPem);
         Credential serverCreds = new Credential().subject("CN=server").issuer(serverCaCreds)
                 .writeCertificateAsPem(serverCertPem).writePrivateKeyAsPem(serverKeyPem);
 
         // Create KeyManager for server.
+        log.debug("Initializing KeyManager for: {}, {}", serverCertPem, serverKeyPem);
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
         kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem)));
 
         // Create TrustManager for client (default algorithm=PKIX).
+        log.debug("Initializing TrustManager for: {}", serverCaCertPem);
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmfClient.init(ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore());
 
@@ -129,6 +140,10 @@ public class TestReloadingKeyStoreWithTls {
         Path clientKeyPem = tempDir.resolve("client-key.pem");
 
         // Create CAs, server and client certificate.
+        log.debug("Writing PEM files: {}, {}, {}, {}, {}, {}",
+                serverCaCertPem, clientCaCertPem,
+                serverCertPem, serverKeyPem,
+                clientCertPem, clientKeyPem);
         Credential serverCaCreds = new Credential().subject("CN=server-ca").writeCertificateAsPem(serverCaCertPem);
         Credential clientCaCreds = new Credential().subject("CN=client-ca").writeCertificateAsPem(clientCaCertPem);
         Credential serverCreds = new Credential().subject("CN=server").issuer(serverCaCreds)
@@ -137,18 +152,22 @@ public class TestReloadingKeyStoreWithTls {
                 .writeCertificateAsPem(clientCertPem).writePrivateKeyAsPem(clientKeyPem);
 
         // Create KeyManager for server.
+        log.debug("Initializing KeyManager for: {}, {}", serverCertPem, serverKeyPem);
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
         kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem)));
 
         // Create TrustManager for server (default algorithm=PKIX).
+        log.debug("Initializing TrustManager for: {}", clientCaCertPem);
         TrustManagerFactory tmfServer = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmfServer.init(ReloadingKeyStore.Builder.fromPem(clientCaCertPem).getKeyStore());
 
         // Create KeyManager for client.
+        log.debug("Initializing KeyManager for: {}, {}", clientCertPem, clientKeyPem);
         KeyManagerFactory kmfClient = KeyManagerFactory.getInstance("NewSunX509");
         kmfClient.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(clientCertPem, clientKeyPem)));
 
         // Create TrustManager for client (default algorithm=PKIX).
+        log.debug("Initializing TrustManager for: {}", serverCaCertPem);
         TrustManagerFactory tmfClient = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmfClient.init(ReloadingKeyStore.Builder.fromPem(serverCaCertPem).getKeyStore());
 
@@ -384,8 +403,8 @@ public class TestReloadingKeyStoreWithTls {
         Path ksPath = tempDir.resolve("server.p12");
 
         // Time instants
-        // - before: file was created.
-        // - after: cache TTL has expired and it will be checked again if file has been modified.
+        // - before: keystore file were created.
+        // - after: cache TTL has expired and keystore file will be checked for modification.
         Instant before = Instant.now();
         Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
 
@@ -397,6 +416,7 @@ public class TestReloadingKeyStoreWithTls {
         TrustManagerFactory tmfClient = TlsTester.createTrustManagerFactory(tempDir, serverCaCreds);
 
         // Create initial keystore file.
+        log.debug("Writing initial keystore: {}", ksPath);
         KeyStore ks = KeyStore.getInstance("PKCS12");
         ks.load(null, null);
         ks.setKeyEntry("server", serverCredsBeforeUpdate.getPrivateKey(), "secret".toCharArray(),
@@ -404,6 +424,7 @@ public class TestReloadingKeyStoreWithTls {
         ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
         // Create KeyManager for server.
+        log.debug("Initializing KeyManager for: {}", ksPath);
         KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
         kmfServer.init(
                 new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret")));
@@ -414,6 +435,7 @@ public class TestReloadingKeyStoreWithTls {
 
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             // Configure clock to return the initial time instant.
+            log.debug("Setting mocked time: {}", before);
             Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(before);
 
             // Connect to the server and check that server returns expected certificate.
@@ -421,7 +443,8 @@ public class TestReloadingKeyStoreWithTls {
                     .getServerCertificate();
             assertArrayEquals(serverCredsBeforeUpdate.getCertificates(), gotServerCerts);
 
-            // Create keystore file with updated server certificate.
+            // Create new keystore file with updated server certificate.
+            log.debug("Updating keystore: {}", ksPath);
             ks = KeyStore.getInstance("PKCS12");
             ks.load(null, null);
             ks.setKeyEntry("server", serverCredsAfterUpdate.getPrivateKey(), "secret".toCharArray(),
@@ -429,9 +452,10 @@ public class TestReloadingKeyStoreWithTls {
             ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
 
             // Configure clock to return different time to expire cache TTL.
+            log.debug("Setting mocked time: {}", after);
             Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(after);
 
-            // Connect the server again anc check that server returns updated certificate.
+            // Connect the server again to check that server returns updated certificate.
             gotServerCerts = TlsTester.connect(server, tmfClient.getTrustManagers()).getServerCertificate();
             assertArrayEquals(serverCredsAfterUpdate.getCertificates(), gotServerCerts);
         } finally {
@@ -441,8 +465,58 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testTrustStoreHotReload() {
-        // TODO
+    void testPemHotReload(@TempDir Path tempDir) throws Exception {
+        Path serverCertPem = tempDir.resolve("server.pem");
+        Path serverKeyPem = tempDir.resolve("server-key.pem");
+
+        // Time instants
+        // - before: keystore file were created.
+        // - after: cache TTL has expired and keystore file will be checked for modification.
+        Instant before = Instant.now();
+        Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
+
+        // Create CA and server certificate.
+        log.debug("Writing initial PEM files: {}, {}", serverCertPem, serverKeyPem);
+        Credential serverCaCreds = new Credential().subject("CN=ca");
+        Credential serverCredsBeforeUpdate = new Credential().subject("CN=before-update").issuer(serverCaCreds)
+                .writeCertificateAsPem(serverCertPem).writePrivateKeyAsPem(serverKeyPem);
+
+        // Create KeyManager for server.
+        KeyManagerFactory kmfServer = KeyManagerFactory.getInstance("NewSunX509");
+        kmfServer.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(serverCertPem, serverKeyPem)));
+
+        TrustManagerFactory tmfClient = TlsTester.createTrustManagerFactory(tempDir, serverCaCreds);
+
+        // Inject mocked clock to control time.
+        Clock originalClock = DelegatingKeyStoreSpi.now;
+        DelegatingKeyStoreSpi.now = Mockito.mock(Clock.class);
+
+        try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
+            // Configure clock to return the initial time instant.
+            log.debug("Setting mocked time: {}", before);
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(before);
+
+            // Connect to the server and check that server returns expected certificate.
+            Certificate[] gotServerCerts = TlsTester.connect(server, tmfClient.getTrustManagers())
+                    .getServerCertificate();
+            assertArrayEquals(serverCredsBeforeUpdate.getCertificates(), gotServerCerts);
+
+            // Create new updated PEMs.
+            log.debug("Updating PEM files: {}, {}", serverCertPem, serverKeyPem);
+            Credential serverCredsAfterUpdate = new Credential().subject("CN=after-update").issuer(serverCaCreds)
+                    .writeCertificateAsPem(serverCertPem).writePrivateKeyAsPem(serverKeyPem);
+
+            // Configure clock to return different time to expire cache TTL.
+            log.debug("Setting mocked time: {}", after);
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(after);
+
+            // Connect the server again to check that server returns updated certificate.
+            gotServerCerts = TlsTester.connect(server, tmfClient.getTrustManagers()).getServerCertificate();
+            assertArrayEquals(serverCredsAfterUpdate.getCertificates(), gotServerCerts);
+        } finally {
+            // Restore original clock back.
+            DelegatingKeyStoreSpi.now = originalClock;
+        }
     }
 
     @Test
@@ -542,10 +616,10 @@ public class TestReloadingKeyStoreWithTls {
         // problem: invalid password.
         //
         // - In case of server: X509KeyManagerImpl.getEntry() hides the error by ignoring the exception thrown by
-        // KeyStores.
+        //   KeyStores.
         // - In case of client: client fails during TLS handshake since no common ciphers (since server has not
-        // certificates) To help troubleshooting, DelegatingKeyStoreSpi.engineGetKey() will catch the exception and
-        // print an error.
+        //   certificates) To help troubleshooting, DelegatingKeyStoreSpi.engineGetKey() will catch the exception and
+        //   print an error.
         try (TlsTester.Server server = TlsTester.serverWithServerAuth(kmfServer.getKeyManagers())) {
             assertThrows(SSLHandshakeException.class, () -> TlsTester.connect(server, tmfClient.getTrustManagers()));
         }

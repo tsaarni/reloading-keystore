@@ -60,7 +60,7 @@ public class ReloadingKeyStoreFileSpi extends DelegatingKeyStoreSpi {
    */
   void refresh() throws IOException, KeyStoreException, NoSuchAlgorithmException, CertificateException {
     // If keystore has been previously loaded, check the modification timestamp to decide if reload is needed.
-    if ((lastModified != null) && (lastModified.compareTo(Files.getLastModifiedTime(path)) > 0)) {
+    if ((lastModified != null) && (lastModified.compareTo(Files.getLastModifiedTime(path)) >= 0)) {
       // File was not modified since last reload: do nothing.
       return;
     }
