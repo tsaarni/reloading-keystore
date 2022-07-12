@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package keystore_tutorial;
+package fi.protonode.reloadingkeystore;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 

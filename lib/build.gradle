@@ -1,5 +1,8 @@
 plugins {
     id 'java-library'
+    id 'jacoco' // Adds jacocoTestReport task for coverage.
+    id 'maven-publish'
+    id 'signing'
 }
 
 repositories {
@@ -9,21 +12,6 @@ repositories {
         mavenContent {
             snapshotsOnly()
         }
-    }
-}
-
-java {
-    withJavadocJar()
-    withSourcesJar()
-}
-
-// Compatibility with JDK8.
-compileJava {
-    if (JavaVersion.current() > JavaVersion.VERSION_1_8){
-        options.release = 8
-    } else {
-        sourceCompatibility = '1.8'
-        targetCompatibility = '1.8'
     }
 }
 
@@ -40,6 +28,21 @@ dependencies {
     implementation 'org.slf4j:slf4j-api:1.7.36'
 }
 
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+// Compatibility with JDK8.
+compileJava {
+    if (JavaVersion.current() > JavaVersion.VERSION_1_8) {
+        options.release = 8
+    } else {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+    }
+}
+
 tasks.named('test') {
     useJUnitPlatform()
 }
@@ -49,4 +52,56 @@ test {
         showStackTraces = true
         exceptionFormat = 'full'
     }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = 'fi.protonode'
+            artifactId = 'reloading-keystore'
+
+            from components.java
+
+            pom {
+                name = 'certy'
+                description = 'KeyStore with certificate hot-reload and PEM file support.'
+                url = 'https://github.com/tsaarni/reloading-keystore'
+                developers {
+                    developer {
+                        id = 'tsaarni'
+                        name = 'Tero Saarni'
+                        email = 'tero.saarni@gmail.com'
+                        organizationUrl = 'https://github.com/tsaarni/'
+                    }
+                }
+                scm {
+                    connection = 'scm:git:git://github.com:tsaarni/reloading-keystore.git'
+                    developerConnection = 'scm:git:ssh://github.com:tsaarni/reloading-keystore.git'
+                    url = 'https://github.com/tsaarni/reloading-keystore'
+                }
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+            }
+        }
+    }
+    repositories {
+        maven {
+            def releasesRepoUrl = 'https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/'
+            def snapshotsRepoUrl = 'https://s01.oss.sonatype.org/content/repositories/snapshots/'
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+            credentials {
+                username = project.hasProperty('ossrhUsername') ? ossrhUsername : 'undefined'
+                password = project.hasProperty('ossrhPassword') ? ossrhPassword : 'undefined'
+            }
+        }
+    }
+}
+
+signing {
+    useGpgCmd()
+    sign publishing.publications.maven
 }

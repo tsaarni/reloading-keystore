@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package keystore_tutorial;
+package fi.protonode.reloadingkeystore;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -188,7 +188,7 @@ public class TestReloadingKeyStoreWithTls {
     void testMultipleServerCertificateWithSniSelection(@TempDir Path tempDir) throws Exception {
 
         // Create CA and server certificates for a server that supports several virtualhosts. The certificates have
-        // virtualhost's DNS name in their Subject Alternative Name (SAN) field.
+        // virtualhosts DNS name in their Subject Alternative Name (SAN) field.
         Credential serverCaCreds = new Credential().subject("CN=server-ca");
         Credential serverFooCreds = new Credential().subject("CN=foo").issuer(serverCaCreds)
                 .subjectAltName("DNS:foo.com");

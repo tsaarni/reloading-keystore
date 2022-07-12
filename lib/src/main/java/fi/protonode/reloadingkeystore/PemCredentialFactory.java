@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package keystore_tutorial;
+package fi.protonode.reloadingkeystore;
 
 import java.io.IOException;
 import java.io.InputStream;
