@@ -18,7 +18,7 @@ User has to go through conversion process to construct PKCS#12 or JKS keystore f
 
 Multiple server certificates per `KeyStore` are used when server supports virtual hosting for multiple domain names.
 There is no way for user to reliably configure which certificate is returned as fallback certificate (default certificate) for clients that do not send [TLS SNI servername](https://en.wikipedia.org/wiki/Server_Name_Indication) or if client sends unknown servername.
-See [StackOverflow discussion](https://stackoverflow.com/questions/72446019/how-does-java-pick-default-certificate-when-keystore-has-multiple-server-certifi).
+For further discussion see [here](https://stackoverflow.com/questions/72446019/how-does-java-pick-default-certificate-when-keystore-has-multiple-server-certifi).
 
 ## Implementation
 
@@ -56,7 +56,7 @@ When the timestamp is newer than last loaded timestamp, it reads the file again 
 [`ReloadingPemFileKeyStoreSpi`](../lib/src/main/java/fi/protonode/reloadingkeystore/ReloadingPemFileKeyStoreSpi.java) is a subclass that reads its input from underlying certificate and private key PEM files by using `PemCredentialFactory`.
 It monitors the modification timestamp of the files.
 When the timestamp is newer than the last loaded timestamp, it reads the files again and constructs in-memory `KeyStore` from the PEM files and sets it as delegate.
-The KeyStore type used by `ReloadingPemFileKeyStoreSpi` as delegate is PKCS#12.
+The KeyStore type used as delegate is PKCS#12.
 Since two individual files constitute PEM credentials, user should take care when updating the files on disk so that KeyStore will always serve certificate and private key that belong together.
 See topic "Why not use `WatchService`?" below.
 
@@ -83,11 +83,12 @@ That results in these native resources not being freed in timely manner.
 The application can even run out of file descriptors e.g. during unit test execution where a lot of short-lived keystores might be instantiated, or worse, in production.
 
 Second complication is related to the way how the underlying credential files are updated.
-The update must be done atomically to avoid loading corrupted files or loading a pair of PEM credentials where certificate does not match the private key since the files were read during update.
+The update must be done atomically to avoid loading corrupted files or loading a pair of PEM credentials where certificate does not match the private key since the files were read in the middle of update.
 There are different schemes to achieve the atomic file swap.
 In case of Kubernetes `Secret` volume mount, symbolic links are set up pointing to a directory that will be swapped.
 The content of all the files change atomically at the time of the directory swap.
-As a takeaway: the credential files cannot be monitored directly as the watch would fail to trigger since it follows the old file(s) that are not updated.
+As a consequence of the atomic swap, the credential files cannot be monitored directly.
+The watch would fail to trigger since it follows the old file(s) that are never updated.
 The watch must monitor move operations in a directory where the swap happens.
 It needs to consider any move as a possible trigger and check if the content of credential files actually changed.
 Single directory move might have caused the symlinks to point to a completely new set of credential files.
@@ -97,7 +98,7 @@ User would need to be able to configure watched base directory to work with thei
 See [here](https://github.com/envoyproxy/envoy/issues/9359#issuecomment-579314094) for further description of the problem.
 Simpler approach taken by this project bypasses the above complications with (hopefully) acceptable compromise.
 
-### What is  `KeyStoreSpi`?
+### Why use  `KeyStoreSpi`?
 
 There are two alternative approaches to change how TLS credentials are handled:
 
@@ -105,22 +106,23 @@ There are two alternative approaches to change how TLS credentials are handled:
 * Create custom `KeyStoreSpi` and use it with the default `KeyManager(s)`.
 
 While the first alternative may be used more often, it might not be the best alternative.
-Even if the interface seems similar to `KeyStore`, the scope of implementation can be very different.
+Even if the interface seems very similar to `KeyStore` in the first sight, the scope of implementation can be very different.
 One may end up implementing TLS features, such as processing the TLS SNI extension.
+See `KeyManager` implementations from the JDK for [`NewSunX509`](https://github.com/openjdk/jdk17u/blob/master/src/java.base/share/classes/sun/security/ssl/X509KeyManagerImpl.java) and older [`SunX509`](https://github.com/openjdk/jdk17u/blob/master/src/java.base/share/classes/sun/security/ssl/SunX509KeyManagerImpl.java) algorithms for an idea about the scope.
 
-The `KeyStoreSpi` is a service provider interface (an extension point) for implementing KeyStores.
-It has a major benefit of working together with the existing KeyManagers, such as `NewSunX509`, making it possible to benefit from all of its features that it provides out-of-the-box.
+The `KeyStoreSpi` is a service provider interface (an extension point) for implementing KeyStores - nothing more.
+It has a major benefit of working together with the existing KeyManagers, such as `NewSunX509`, making it possible to benefit from all of the features that existing KeyManagers provides out-of-the-box.
 
-### What is `NewSunX509` key manager?
+### Why use `NewSunX509` key manager?
 
 While the default KeyManager in JDK 17 is still `SunX509`, there is more advanced `NewSunX509` KeyManager, introduced already in JDK 5.
-It has following features ([source code link](https://github.com/openjdk/jdk17u/blob/master/src/java.base/share/classes/sun/security/ssl/X509KeyManagerImpl.java)):
+It has following features ([source](https://github.com/openjdk/jdk17u/blob/master/src/java.base/share/classes/sun/security/ssl/X509KeyManagerImpl.java)):
 
 * It supports KeyStores with multiple certificates and private keys, selecting the most suitable one to return to the peer according to various criteria.
 * It is designed for use with KeyStores that change over their lifetime.
 * It supports different passwords for each key entry.
 
-The `X509Keymanager` can be instantiated by specifying `NewSunX509` as an algorithm name in property `ssl.KeyManagerFactory.algorithm` or by explicitly requesting an instance:
+The new KeyManager is instantiated by specifying `NewSunX509` as an algorithm name in property `ssl.KeyManagerFactory.algorithm` or by explicitly requesting an instance:
 
 ```java
 KeyManagerFactory factory = KeyManagerFactory.getInstance("NewSunX509");
@@ -134,13 +136,14 @@ The different criteria considered by `NewSunX509` when selecting the most suitab
 * Pick key entry that matches key type suitable for enabled cipher suites.
 * Pick key entry that is valid according to certificate valid from / valid to dates.
 
-One neglected aspect of implementing `KeyManager(s)` is the lack of synchronization between two methods called during the TLS handshake: `getCertificateChain(String alias)` and `getPrivateKey(String alias)`.
-KeyManager was not designed for KeyStores that change their content at runtime.
-What if certificate and private key can be updated in the middle of the handshake?
-The resulting mix of credentials would not be valid anymore and it would result in infrequent authentication error that might be hard to troubleshoot.
+One neglected aspect when implementing custom `KeyManager(s)` is the lack of synchronization between two methods called during the TLS handshake: `getCertificateChain(String alias)` and `getPrivateKey(String alias)`.
+KeyManager API was not designed for KeyStores that change their content at runtime: what if certificate and private key are updated during the handshake?
+The resulting mix of old and new credentials would be invalid.
+It could result in infrequent authentication error that might be hard to troubleshoot.
 `NewSunX509` [caches](https://github.com/openjdk/jdk17u/blob/84ac0f0de4556472c61a775abd812302765a3395/src/java.base/share/classes/sun/security/ssl/X509KeyManagerImpl.java#L77-L78) the [`PrivateKeyEntry`](https://github.com/openjdk/jdk17u/blob/20f3576cd1bbe516360b0d9f7deaacdad94df4d7/src/java.base/share/classes/java/security/KeyStore.java#L462-L472) instances (a combination of certificate chain and private key) internally to make it more likely it has a consistent set of credentials.
 It uses its own [prefixed alias naming scheme](https://github.com/openjdk/jdk17u/blob/84ac0f0de4556472c61a775abd812302765a3395/src/java.base/share/classes/sun/security/ssl/X509KeyManagerImpl.java#L237-L244) to refer to the cached entries.
-Calls to get the certificate chain or private key with given alias sticks to the cached key entries and the do not proceed to the `KeyStoreSpi` instance, risking that it would hit credentials that have been updated between calls.
+Calls to get the certificate chain or private key with given alias sticks to the cached key entries.
+The calls do not proceed all the way to the `KeyStoreSpi` instance, risking that it would hit credentials that have been updated between calls.
 The next round-trip to SPI happens when next server or client alias selection is requested.
 The updated credentials will be picked up at that point.
 

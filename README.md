@@ -24,7 +24,6 @@ for details and related background discussion about JSSE (Java Secure Socket Ext
 
 Read the latest API documentation [here](https://tsaarni.github.io/reloading-keystore).
 
-
 ## Example
 
 Following example shows how to create a TLS server that reads its server credentials from PEM files.
@@ -32,8 +31,9 @@ It constructs an instance of custom `KeyStore` which will have the special capab
 It is then passed to `KeyManager` just like the standard `KeyStores`.
 
 ```java
-// Create KeyManagerFactory with our KeyStoreSpi constructed from:
-// server.pem and server-key.pem.
+// Create KeyManagerFactory with ReloadingKeyStore, implemented by custom KeyStoreSpi.
+// Credentials in the KeyStore are loaded from server.pem and server-key.pem.
+// ReloadingKeyStore keeps track of the files for being able to reload them later.
 KeyManagerFactory kmf = KeyManagerFactory.getInstance("NewSunX509");
 kmf.init(new KeyStoreBuilderParameters(ReloadingKeyStore.Builder.fromPem(
     Paths.get("server.pem"), Paths.get("server-key.pem"))));
@@ -46,8 +46,8 @@ ctx.init(kmf.getKeyManagers(), null, null);
 
 // Create server socket and start accepting connections.
 // Server will query our KeyManager for server credentials every time it
-// gets a new connection from the clients. Credentials will be reloaded
-// automatically when they are updated on disk.
+// gets a new connection from clients.
+// Credentials will be reloaded automatically when they are updated on disk.
 SSLServerSocketFactory ssf = ctx.getServerSocketFactory();
 SSLServerSocket socket = (SSLServerSocket) ssf.createServerSocket(
     8443, 1, InetAddress.getByName("localhost"));
