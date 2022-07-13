@@ -27,8 +27,8 @@ Read the latest API documentation [here](https://tsaarni.github.io/reloading-key
 ## Example
 
 Following example shows how to create a TLS server that reads its server credentials from PEM files.
-We construct a custom `KeyStore` which will have the special capabilities mentioned previously.
-We then pass it to `KeyManager` just like the standard `KeyStores`.
+It constructs an instance of custom `KeyStore` which will have the special capabilities mentioned previously.
+It is then passed to `KeyManager` just like the standard `KeyStores`.
 
 ```java
 // Create KeyManagerFactory with our KeyStoreSpi constructed from:
