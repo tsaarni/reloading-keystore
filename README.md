@@ -1,6 +1,7 @@
 # Reloading KeyStore for Java
 
 ![](https://github.com/tsaarni/reloading-keystore/workflows/unit-tests/badge.svg)
+[![Maven Central](https://img.shields.io/maven-central/v/fi.protonode/reloading-keystore)](https://search.maven.org/search?q=g:fi.protonode%20AND%20a:reloading-keystore)
 
 ## Description
 
