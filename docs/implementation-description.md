@@ -9,7 +9,7 @@ Reloading-keystore addresses following shortcomings of JSSE (Java Secure Socket 
 `KeyStore` does not automatically reload its content when underlying file changes.
 Why is this a problem?
 Let's Encrypt recommends renewing certificates [every 60 days](https://letsencrypt.org/docs/faq/#what-is-the-lifetime-for-let-s-encrypt-certificates-for-how-long-are-they-valid).
-Lot shorter renewal period may be used in certain deployments as internal "private PKI" certificates, even down to hours or minutes.
+Lot shorter renewal period may be used in certain deployments as internal "private" PKI certificates, even down to hours or minutes.
 It becomes inconvenient to restart the application every time certificate is rotated.
 The ability to reload certificates and private keys at runtime is often referred to as _certificate hot-reload_ or _hitless certificate rotation_.
 
@@ -78,7 +78,7 @@ While it would be possible to use `WatchService`, there are two major complicati
 First complication is that `WatchService` needs a background thread to block on receiving the watch events.
 Managing the thread from `KeyStoreSpi` can be challenging.
 None of the related classes implement `Closeable`.
-There is no explicit call when `KeyStore` is destroyed, that would allow stopping the thread and to free the watch to `close(fd)` the inotify file descriptor.
+There is no explicit call when `KeyStore` is destroyed, that would allow stopping the thread and to free the watch to `close(fd)` the inotify file descriptors.
 The `KeyStoreSpi` implementation is several layers deep, buried under `KeyStore` and `KeyManager` interfaces so it is not feasible to add such capability either.
 That results in these native resources not being freed in timely manner.
 The application can even run out of file descriptors e.g. during unit test execution where a lot of short-lived keystores might be instantiated, or worse, in production.
