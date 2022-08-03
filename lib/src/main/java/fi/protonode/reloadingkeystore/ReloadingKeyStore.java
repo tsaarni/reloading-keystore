@@ -214,7 +214,7 @@ public class ReloadingKeyStore extends KeyStore {
     }
 
     /**
-     * Set show frequently the KeyStore(s) will check if the underlying files have changed and reload is required.
+     * Set how frequently the KeyStore(s) will check if the underlying files have changed and reload is required.
      * The check still happens only when credentials are used. TTL of one second means that the file modification
      * will be checked at most once per second, depending when the KeyStore is used next.
      *
