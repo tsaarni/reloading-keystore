@@ -44,7 +44,8 @@ It simply delegates the calls to another instance of [`KeyStore`](https://docs.o
 The benefit in this is that the delegate `KeyStore` can be replaced with a new instance when the underlying files have changed.
 Application or `KeyManager` does not need to be aware that the delegate instance was replaced.
 
-Since it does not make sense to check the files every time the credentials are used, at least on a busy server, there is a refresh period that sets the cap on how frequently the check happens (default `CACHE_TTL` is one second).
+Since it does not make sense to check the files every time the credentials are used, at least on a busy server, there is a refresh period that sets the cap on how frequently the check happens.
+Default cache TTL is one second.
 Once that period has expired, the modification timestamp of the files are checked by the `refresh()` method defined in the concrete subclasses.
 
 `DelegatingKeyStoreSpi` sorts the aliases returned by the delegate, allowing user to leverage the predictable ordering to select default certificate.

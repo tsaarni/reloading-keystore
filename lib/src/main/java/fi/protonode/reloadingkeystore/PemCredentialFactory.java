@@ -84,7 +84,7 @@ public class PemCredentialFactory {
         // Throw exception if no PRIVATE KEY in PEM file.
         if (block == null) {
             log.error("Cannot find PRIVATE KEY PEM block in {}", path);
-            throw new IllegalArgumentException("PEM file does not have private key");
+            throw new IllegalArgumentException("PEM file does not have private key: " + path);
         }
 
         PKCS8EncodedKeySpec spec = new PKCS8EncodedKeySpec(block.getBytes());
@@ -100,7 +100,7 @@ public class PemCredentialFactory {
         // Throw exception if parsing failed for all algorithms.
         if (pkey == null) {
             log.error("Cannot decode private key {}", path);
-            throw new InvalidKeySpecException("Invalid private key");
+            throw new InvalidKeySpecException("Invalid private key: " + path);
         }
 
         return pkey;

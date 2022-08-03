@@ -53,7 +53,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
     static Clock now = Clock.systemUTC();
 
     // Defines how often the delegate keystore should be checked for updates.
-    static final Duration CACHE_TTL = Duration.of(1, ChronoUnit.SECONDS);
+    static Duration cacheTtl = Duration.of(1, ChronoUnit.SECONDS);
 
     private AtomicReference<Delegate> delegate = new AtomicReference<>();
 
@@ -78,7 +78,7 @@ public abstract class DelegatingKeyStoreSpi extends KeyStoreSpi {
         }
 
         // Set the time when refresh should be checked next.
-        cacheExpiredTime = now.instant().plus(CACHE_TTL);
+        cacheExpiredTime = now.instant().plus(cacheTtl);
 
         try {
             refresh();
