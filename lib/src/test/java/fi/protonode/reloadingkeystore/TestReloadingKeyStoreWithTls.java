@@ -406,7 +406,7 @@ public class TestReloadingKeyStoreWithTls {
         // - before: keystore file were created.
         // - after: cache TTL has expired and keystore file will be checked for modification.
         Instant before = Instant.now();
-        Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
+        Instant after = before.plus(DelegatingKeyStoreSpi.cacheTtl);
 
         // Create CA and server certificate.
         Credential serverCaCreds = new Credential().subject("CN=ca");
@@ -473,7 +473,7 @@ public class TestReloadingKeyStoreWithTls {
         // - before: keystore file were created.
         // - after: cache TTL has expired and keystore file will be checked for modification.
         Instant before = Instant.now();
-        Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
+        Instant after = before.plus(DelegatingKeyStoreSpi.cacheTtl);
 
         // Create CA and server certificate.
         log.debug("Writing initial PEM files: {}, {}", serverCertPem, serverKeyPem);

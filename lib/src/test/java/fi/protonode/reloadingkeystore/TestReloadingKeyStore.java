@@ -31,7 +31,9 @@ import java.security.UnrecoverableEntryException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -131,7 +133,7 @@ public class TestReloadingKeyStore {
         // - before: PEM files were created.
         // - after: cache TTL has expired and PEM files will be checked for modification.
         Instant before = Instant.now();
-        Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
+        Instant after = before.plus(DelegatingKeyStoreSpi.cacheTtl);
 
         // Inject mocked clock to control time.
         Clock originalClock = DelegatingKeyStoreSpi.now;
@@ -181,7 +183,7 @@ public class TestReloadingKeyStore {
         // - before: keystore file was created.
         // - after: cache TTL has expired and keystore file will be checked for modification.
         Instant before = Instant.now();
-        Instant after = before.plus(DelegatingKeyStoreSpi.CACHE_TTL);
+        Instant after = before.plus(DelegatingKeyStoreSpi.cacheTtl);
 
         // Inject mocked clock to control time.
         Clock originalClock = DelegatingKeyStoreSpi.now;
@@ -228,7 +230,71 @@ public class TestReloadingKeyStore {
             // Restore original clock back.
             DelegatingKeyStoreSpi.now = originalClock;
         }
+    }
 
+    @Test
+    void testChangingHotReloadCachePeriod(@TempDir Path tempDir) throws Exception {
+        Path ksPath = tempDir.resolve("keystore.p12");
+
+        // Time instants
+        // - before: keystore file was created.
+        // - meanwhile: delegate KeyStore cache TTL has not expired yet.
+        // - after: cache TTL has expired and keystore file will be checked for modification.
+        Instant before = Instant.now();
+        Instant meanwhile = before.plus(Duration.of(1, ChronoUnit.SECONDS));
+        Instant after = before.plus(Duration.of(5, ChronoUnit.MINUTES));
+
+        // Change the KeyStore delegate cache TTL period.
+        Duration originalCacheTtl = ReloadingKeyStoreFileSpi.cacheTtl;
+        ReloadingKeyStore.setDefaultKeyStoreCacheTtl(Duration.of(5, ChronoUnit.MINUTES));
+
+        // Inject mocked clock to control time.
+        Clock originalClock = DelegatingKeyStoreSpi.now;
+        DelegatingKeyStoreSpi.now = Mockito.mock(Clock.class);
+
+        try (MockedStatic<Instant> mockedInstant = mockStatic(Instant.class, Mockito.CALLS_REAL_METHODS)) {
+            // Configure clock to return the initial time instant.
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(before);
+
+            // Write initial versions of the keystore to the disk.
+            Credential credBeforeUpdate = new Credential().subject("CN=joe");
+
+            KeyStore ks = KeyStore.getInstance("PKCS12");
+            ks.load(null, null);
+            ks.setKeyEntry("cred", credBeforeUpdate.getPrivateKey(), null, credBeforeUpdate.getCertificates());
+            ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
+
+            // Load initial keystore from the disk.
+            KeyStore gotKs = ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", ksPath, "secret").getKeyStore();
+            assertNotNull(gotKs);
+
+            // Check that we got the initial certificate and key back.
+            assertArrayEquals(credBeforeUpdate.getCertificates(), gotKs.getCertificateChain("cred"));
+            assertEquals(credBeforeUpdate.getPrivateKey(), gotKs.getKey("cred", null));
+
+            // Write updated keystore to the disk.
+            Credential credAfterUpdate = new Credential().subject("CN=joe");
+            ks = KeyStore.getInstance("PKCS12");
+            ks.load(null, null);
+            ks.setKeyEntry("cred", credAfterUpdate.getPrivateKey(), null, credAfterUpdate.getCertificates());
+            ks.store(Files.newOutputStream(ksPath), "secret".toCharArray());
+
+            // Advance time and check that we still get old credentials back, before cache TTL expires.
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(meanwhile);
+            assertArrayEquals(credBeforeUpdate.getCertificates(), gotKs.getCertificateChain("cred"));
+            assertEquals(credBeforeUpdate.getPrivateKey(), gotKs.getKey("cred", null));
+
+            // Check that keystore was reloaded from disk after cache TTL expired.
+            Mockito.when(DelegatingKeyStoreSpi.now.instant()).thenReturn(after);
+            assertArrayEquals(credAfterUpdate.getCertificates(), gotKs.getCertificateChain("cred"));
+            assertEquals(credAfterUpdate.getPrivateKey(), gotKs.getKey("cred", null));
+        } finally {
+            // Restore original delegate KeyStore cache TTL.
+            ReloadingKeyStore.setDefaultKeyStoreCacheTtl(originalCacheTtl);
+
+            // Restore original clock back.
+            DelegatingKeyStoreSpi.now = originalClock;
+        }
     }
 
     @Test

@@ -23,6 +23,7 @@ import java.security.KeyStoreSpi;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.spec.InvalidKeySpecException;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -161,11 +162,11 @@ public class ReloadingKeyStore extends KeyStore {
                 InvalidKeySpecException, IOException {
 
             if (keys.size() < certs.size()) {
-                throw new IllegalArgumentException("Missing private key");
+                throw new IllegalArgumentException("Missing private key: fewer private keys given than certificates");
             } else if (keys.size() > certs.size()) {
-                throw new IllegalArgumentException("Missing X.509 certificate");
+                throw new IllegalArgumentException("Missing X.509 certificate: fewer certs given than private keys");
             } else if (keys.isEmpty()) {
-                throw new IllegalArgumentException("No credentials configured");
+                throw new IllegalArgumentException("No credentials given: keys list was empty");
             }
 
             ReloadingPemFileKeyStoreSpi spi = new ReloadingPemFileKeyStoreSpi();
@@ -210,6 +211,17 @@ public class ReloadingKeyStore extends KeyStore {
             }
             return new Builder(new ReloadingKeyStore(spi), ReloadingPemFileKeyStoreSpi.IN_MEMORY_KEYSTORE_PASSWORD);
         }
+    }
+
+    /**
+     * Set show frequently the KeyStore(s) will check if the underlying files have changed and reload is required.
+     * The check still happens only when credentials are used. TTL of one second means that the file modification
+     * will be checked at most once per second, depending when the KeyStore is used next.
+     *
+     * @param ttl Minimum time-to-live for in-memory delegate {@code KeyStore}.
+     */
+    public static void setDefaultKeyStoreCacheTtl(Duration ttl) {
+        DelegatingKeyStoreSpi.cacheTtl = ttl;
     }
 
 }
