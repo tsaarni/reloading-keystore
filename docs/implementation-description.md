@@ -76,7 +76,7 @@ On Linux it is [implemented](https://github.com/openjdk/jdk17u/blob/master/src/j
 Instead of using that, the implementation in this project polls file modification timestamp.
 While it would be possible to use `WatchService`, there are two major complications in that.
 
-First complication is that `WatchService` needs a background thread to block on receiving the watch events.
+The first complication is that `WatchService` needs a background thread to block on receiving the watch events.
 Managing the thread from `KeyStoreSpi` can be challenging.
 None of the related classes implement `Closeable`.
 There is no explicit call when `KeyStore` is destroyed, that would allow stopping the thread and to free the watch to `close(fd)` the inotify file descriptors.
@@ -84,9 +84,20 @@ The `KeyStoreSpi` implementation is several layers deep, buried under `KeyStore`
 That results in these native resources not being freed in timely manner.
 The application can even run out of file descriptors e.g. during unit test execution where a lot of short-lived keystores might be instantiated, or worse, in production.
 
-Second complication is related to the way how the underlying credential files are updated.
-The update must be done atomically to avoid loading corrupted files or loading a pair of PEM credentials where certificate does not match the private key since the files were read in the middle of update.
-There are different schemes to achieve the atomic file swap.
+The second complication is related to the way how the underlying credential files are updated.
+Different events will be emitted by the watch depending on the update scheme.
+Reloading will quietly fail to happen if the user chose a scheme that the implementation did not support.
+
+Example update schemes include:
+1. User may overwrite the existing credential files in place with new content.
+2. User may create temporary credential file(s) and then rename them to replace original file(s).
+3. User may swap the credential files by manipulating symbolic links, either on the individual file level or directory level.
+4. User may swap the credential files by renaming the parent directory.
+
+The update must be done atomically to avoid loading corrupted files or loading a pair of PEM credentials where the certificate does not match the private key since the files were read in the middle of the update.
+Not all the above update schemes guarantee atomic file swap.
+This may need to be compensated by the implementation if a non-atomic file swap scheme needs to be supported.
+
 In case of Kubernetes `Secret` volume mount, symbolic links are set up pointing to a directory that will be swapped.
 The content of all the files change atomically at the time of the directory swap.
 As a consequence of the atomic swap, the credential files cannot be monitored directly.
@@ -94,10 +105,10 @@ The watch would fail to trigger since it follows the old file(s) that are never 
 The watch must monitor move operations in a directory where the swap happens.
 It needs to consider any move as a possible trigger and check if the content of credential files actually changed.
 Single directory move might have caused the symlinks to point to a completely new set of credential files.
+See [here](https://github.com/envoyproxy/envoy/issues/9359#issuecomment-579314094) for further description.
 
 There is no single approach to watch files that would work for all schemes.
-User would need to be able to configure watched base directory to work with their scheme.
-See [here](https://github.com/envoyproxy/envoy/issues/9359#issuecomment-579314094) for further description of the problem.
+Users would need to be able to configure watched base directory and the list of watched events.
 Simpler approach taken by this project bypasses the above complications with (hopefully) acceptable compromise.
 
 ### Why use `KeyStoreSpi`?
