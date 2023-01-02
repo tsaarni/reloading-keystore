@@ -23,7 +23,7 @@ dependencies {
     // Following warning is printed with JDK17
     //   "OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended"
     // https://github.com/mockito/mockito/issues/2590
-    testImplementation 'org.mockito:mockito-inline:4.10.0'
+    testImplementation 'org.mockito:mockito-inline:4.11.0'
 
     implementation 'org.slf4j:slf4j-api:2.0.6'
 }
