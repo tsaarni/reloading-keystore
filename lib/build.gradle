@@ -17,7 +17,7 @@ repositories {
 
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
-    testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.20.0'
+    testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.21.0'
     testImplementation 'fi.protonode:certy:0.3.1'
 
     // Following warning is printed with JDK17
