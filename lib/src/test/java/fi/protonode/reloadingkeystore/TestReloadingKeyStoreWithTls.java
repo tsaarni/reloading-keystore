@@ -16,6 +16,7 @@
 package fi.protonode.reloadingkeystore;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
@@ -28,10 +29,12 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.KeyStoreBuilderParameters;
 import javax.net.ssl.SSLHandshakeException;
 import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -465,7 +468,7 @@ public class TestReloadingKeyStoreWithTls {
     }
 
     @Test
-    void testPemHotReload(@TempDir Path tempDir) throws Exception {
+    void testServerCredentialPemHotReload(@TempDir Path tempDir) throws Exception {
         Path serverCertPem = tempDir.resolve("server.pem");
         Path serverKeyPem = tempDir.resolve("server-key.pem");
 
@@ -516,6 +519,75 @@ public class TestReloadingKeyStoreWithTls {
         } finally {
             // Restore original clock back.
             DelegatingKeyStoreSpi.now = originalClock;
+        }
+    }
+
+    @Test
+    void testTrustStoreHotReload(@TempDir Path tempDir) throws Exception {
+        // Note:
+        // Java itself does not support TrustStores that change content during runtime, unlike it does for KeyStores.
+        // TrustManagerFactory and TrustManager objects will fetch the trusted certificates from KeyStore at instantiation time,
+        // and will not re-fetch them later during TLS handshake.
+        //
+        // The approach to hot-reload demonstrated by this example is following:
+        //
+        // - Create initial TrustStore file on disk
+        // - Initialize TrustManagerFactory with a keystore that reads the TrustStore file.
+        //   ReloadingKeyStore is used in this example but it is not required.
+        // - Create TLS server and initialize SSLContext with the TrustManager from TrustManagerFactory.
+        // - Update the TrustStore file on disk
+        // - Re-initialize TrustManagerFactory with a keystore that reads the updated TrustStore file.
+        //   TrustManagerFactory will fetch the trusted certificates from the updated file at this point and pass them to the new TrustManager.
+        // - Swap the TrustManager in the server's SSLContext with the new TrustManager.
+
+        Path tsPath = tempDir.resolve("server-trustanchors.p12");
+
+        // Create server CA and server certificate.
+        Credential serverCaCreds = new Credential().subject("CN=server-ca");
+        Credential serverCreds = new Credential().subject("CN=server").issuer(serverCaCreds);
+        KeyManagerFactory kmfServer = TlsTester.createKeyManagerFactory(tempDir, serverCreds);
+        TrustManagerFactory tmfClient = TlsTester.createTrustManagerFactory(tempDir, serverCaCreds);
+
+        // Create client CA and client certificate.
+        Credential clientCaCredsBeforeUpdate = new Credential().subject("CN=client-ca-before-update");
+        Credential clientCredsBeforeUpdate = new Credential().subject("CN=client-before-update").issuer(clientCaCredsBeforeUpdate);
+        KeyManagerFactory kmfClientBeforeUpdate = TlsTester.createKeyManagerFactory(tempDir, clientCredsBeforeUpdate);
+
+        // Create initial truststore file for the server to use for client authentication.
+        log.debug("Writing initial truststore: {}", tsPath);
+        KeyStore tsBeforeUpdate = KeyStore.getInstance("PKCS12");
+        tsBeforeUpdate.load(null, null);
+        tsBeforeUpdate.setCertificateEntry("client-ca", clientCaCredsBeforeUpdate.getCertificate());
+        tsBeforeUpdate.store(Files.newOutputStream(tsPath), "".toCharArray());
+
+        // Load the (to-be-swapped) truststore file from disk and construct TrustManagerFactory with it.
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", tsPath, "").getKeyStore());
+
+        try (TlsTester.Server server = TlsTester.serverWithMutualAuth(kmfServer.getKeyManagers(),
+                tmf.getTrustManagers())) {
+            // Check that connection succeeds with the initial client certificate.
+            assertDoesNotThrow(() -> TlsTester.connect(server, kmfClientBeforeUpdate.getKeyManagers(), tmfClient.getTrustManagers()));
+
+            // Create new client CA and client certificate
+            Credential clientCaCredsAfterUpdate = new Credential().subject("CN=client-ca-after-update");
+            Credential clientCredsAfterUpdate = new Credential().subject("CN=client-after-update").issuer(clientCaCredsAfterUpdate);
+            KeyManagerFactory kmfClientAfterUpdate = TlsTester.createKeyManagerFactory(tempDir, clientCredsAfterUpdate);
+
+            // Write new truststore file to simulate change of trusted certificates.
+            log.debug("Updating truststore: {}", tsPath);
+            KeyStore tsAfterUpdate = KeyStore.getInstance("PKCS12");
+            tsAfterUpdate.load(null, null);
+            tsAfterUpdate.setCertificateEntry("client-ca", clientCaCredsAfterUpdate.getCertificate());
+            tsAfterUpdate.store(Files.newOutputStream(tsPath), "".toCharArray());
+
+            // Re-initialize the TrustManagerFactory with new KeyStore instance.
+            tmf.init(ReloadingKeyStore.Builder.fromKeyStoreFile("PKCS12", tsPath, "").getKeyStore());
+            server.swapKeyManagerAndTrustManager(kmfServer.getKeyManagers(), tmf.getTrustManagers());
+
+            // Check that connection succeeds with the updated client certificate.
+            assertDoesNotThrow(() -> TlsTester.connect(server, kmfClientAfterUpdate.getKeyManagers(),
+                    tmfClient.getTrustManagers()));
         }
     }
 

@@ -163,3 +163,11 @@ The updated credentials will be picked up at that point.
 The last improvement in `NewSunX509` might not be something that gets used very often.
 Previously only single password for all key entries was possible.
 `NewSunX509` uses new [KeyStore.Builder](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/security/KeyStore.Builder.html) API which allows more flexibility: the KeyStore will call `getProtectionParameter(String alias)` which may return different password for each alias.
+
+### Why hot-reloading of truststores does not work?
+
+Java itself does not support `TrustStores` that change content during runtime, unlike it does for `KeyStores`.
+[`TrustManagerFactory`](https://github.com/openjdk/jdk17u/blob/9c16e89d275654cee98f5374434bea2097dda91e/src/java.base/share/classes/sun/security/ssl/TrustManagerFactoryImpl.java#L77) fetches the trusted certificates from `KeyStore` at instantiation time, and therefore [`TrustManager`](https://github.com/openjdk/jdk17u/blob/9c16e89d275654cee98f5374434bea2097dda91e/src/java.base/share/classes/sun/security/ssl/X509TrustManagerImpl.java#L79) holds a copy of the trusted certificates in memory.
+It is not possible to update the trusted certificates in `TrustManager` without creating a new instance.
+
+See test case `testTrustStoreHotReload` in file [`TestReloadingKeyStoreWithTls.java`](../lib/src/test/java/fi/protonode/reloadingkeystore/TestReloadingKeyStoreWithTls.java) for an example how to implement hot-reloading of truststores.

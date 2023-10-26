@@ -141,6 +141,15 @@ public class TlsTester {
             return this;
         }
 
+        public Server swapKeyManagerAndTrustManager(KeyManager[] kms, TrustManager[] tms) throws KeyManagementException {
+            log.debug("Swapping TrustManager");
+            // Protect ctx: the method is called from main thread and used also by the server thread.
+            synchronized (ctx) {
+                ctx.init(kms, tms, null);
+            }
+            return this;
+        }
+
         @Override
         public void close() {
             try {
@@ -158,14 +167,17 @@ public class TlsTester {
             while (true) {
                 log.debug("Listening for client to connect...");
                 try (SSLSocket client = (SSLSocket) socket.accept()) {
-                    // Execute TLS handshake.
-                    log.debug("Client connected: executing TLS handshake");
-                    client.startHandshake();
+                    // Protect ctx because we can swap KeyManager and TrustManager in main thread.
+                    synchronized (ctx) {
+                        // Execute TLS handshake.
+                        log.debug("Client connected: executing TLS handshake");
+                        client.startHandshake();
 
-                    // Pass the client credentials to main thread if client authentication was enabled.
-                    if (clientAuthentication) {
-                        SSLSession sess = client.getSession();
-                        clientCertificates.complete(sess.getPeerCertificates());
+                        // Pass the client credentials to main thread if client authentication was enabled.
+                        if (clientAuthentication) {
+                            SSLSession sess = client.getSession();
+                          clientCertificates.complete(sess.getPeerCertificates());
+                        }
                     }
                 } catch (SocketException e) {
                     // Socket closed.
