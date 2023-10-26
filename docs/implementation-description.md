@@ -171,3 +171,4 @@ Java itself does not support `TrustStores` that change content during runtime, u
 It is not possible to update the trusted certificates in `TrustManager` without creating a new instance.
 
 See test case `testTrustStoreHotReload` in file [`TestReloadingKeyStoreWithTls.java`](../lib/src/test/java/fi/protonode/reloadingkeystore/TestReloadingKeyStoreWithTls.java) for an example how to implement hot-reloading of truststores.
+The example will replace the `TrustManager` instance in `SSLContext` when the underlying truststore file changes.
