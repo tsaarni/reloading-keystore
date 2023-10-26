@@ -164,13 +164,14 @@ The last improvement in `NewSunX509` might not be something that gets used very 
 Previously only single password for all key entries was possible.
 `NewSunX509` uses new [KeyStore.Builder](https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/security/KeyStore.Builder.html) API which allows more flexibility: the KeyStore will call `getProtectionParameter(String alias)` which may return different password for each alias.
 
-### Why hot-reloading of truststores does not work?
+### Why hot-reload does not work for truststore?
 
-Java itself does not support truststores that change content during runtime, unlike it does in case of keystores.
+Unlike keystores, Java does not support truststores that changes content during runtime.
 [`TrustManagerFactory`](https://github.com/openjdk/jdk17u/blob/9c16e89d275654cee98f5374434bea2097dda91e/src/java.base/share/classes/sun/security/ssl/TrustManagerFactoryImpl.java#L77) fetches the trusted certificates from `KeyStore` at instantiation time, and therefore [`TrustManager`](https://github.com/openjdk/jdk17u/blob/9c16e89d275654cee98f5374434bea2097dda91e/src/java.base/share/classes/sun/security/ssl/X509TrustManagerImpl.java#L79) holds a copy of the trusted certificates in memory.
 There is no way to update the certificates cached by `TrustManager` without creating a new instance.
 
-See the test case [`TestReloadingKeyStoreWithTls.testTrustStoreHotReload()`](../lib/src/test/java/fi/protonode/reloadingkeystore/TestReloadingKeyStoreWithTls.java#:~:text=testTrustStoreHotReload) for an example how to implement hot-reloading for truststores.
-The example will replace the `TrustManager` instance in `SSLContext` when the underlying truststore file changes.
+See test case [`TestReloadingKeyStoreWithTls.testTrustStoreHotReload()`](../lib/src/test/java/fi/protonode/reloadingkeystore/TestReloadingKeyStoreWithTls.java#:~:text=testTrustStoreHotReload) for implementing this.
+The code will replace the `TrustManager` instance set to long-lived server `SSLContext` when the underlying truststore file changes.
 The same approach can be used to replace the `KeyManager` instance as well.
-The difference between keystore with built-in reload support and re-initializing `SSLContext` is that in the latter case each application must monitor the file changes, reload, and update the `SSLContext`, while in the former case, the logic is hidden inside `KeyStore` implementation.
+The difference between using keystore with built-in reload support and re-initializing `SSLContext` is that in the latter case the application must monitor the file changes, reload, and update the `SSLContext`, while in the former case, the logic is hidden inside `KeyStore` implementation.
+In some cases it might take take considerable
