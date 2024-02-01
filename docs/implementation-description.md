@@ -174,4 +174,4 @@ See test case [`TestReloadingKeyStoreWithTls.testTrustStoreHotReload()`](../lib/
 The code will replace the `TrustManager` instance set to long-lived server `SSLContext` when the underlying truststore file changes.
 The same approach can be used to replace the `KeyManager` instance as well.
 The difference between using keystore with built-in reload support and re-initializing `SSLContext` is that in the latter case the application must monitor the file changes, reload, and update the `SSLContext`, while in the former case, the logic is hidden inside `KeyStore` implementation.
-In some cases it might take take considerable
+In some cases `SSLContext` handling is hidden inside 3rd party library that does not provide support for re-initializing it, in which case changes are needed to the library code to use this approach.
