@@ -16,7 +16,7 @@ repositories {
 }
 
 dependencies {
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.1'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
     testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.24.1'
     testImplementation 'fi.protonode:certy:0.3.1'
 
