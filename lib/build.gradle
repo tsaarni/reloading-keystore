@@ -18,7 +18,7 @@ repositories {
 dependencies {
     testImplementation 'org.junit.jupiter:junit-jupiter:5.11.3'
     testImplementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.24.1'
-    testImplementation 'fi.protonode:certy:0.3.1'
+    testImplementation 'fi.protonode:certy:0.4.1'
 
     // Following warning is printed with JDK17
     //   "OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended"
