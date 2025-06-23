@@ -20,7 +20,7 @@ dependencies {
     testImplementation('org.junit.jupiter:junit-jupiter')
     testRuntimeOnly('org.junit.platform:junit-platform-launcher')
 
-    testImplementation('org.apache.logging.log4j:log4j-slf4j-impl:2.24.3')
+    testImplementation('org.apache.logging.log4j:log4j-slf4j-impl:2.25.0')
     testImplementation('fi.protonode:certy:0.4.1')
 
     // Following warning is printed with JDK17
